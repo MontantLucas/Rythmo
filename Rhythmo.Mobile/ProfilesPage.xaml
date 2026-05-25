@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.ProfilesPage"
+             Title="Profil"
+             Shell.NavBarIsVisible="False">
+
+    <ScrollView Padding="{OnIdiom Phone='20', Default='28'}">
+        <VerticalStackLayout Spacing="28">
+
+            <VerticalStackLayout Spacing="10">
+                <Label Style="{StaticResource RhythmH2}" Text="Profil et corps" />
+                <Label Style="{StaticResource RhythmCaption}"
+                       Text="Biométrie utilisée pour les estimations kcal. L’historique est dans l’onglet Stats." />
+            </VerticalStackLayout>
+
+            <Border Padding="22"
+                    StrokeThickness="0"
+                    BackgroundColor="{StaticResource RhythmSurface1}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="18">
+                    <Label Style="{StaticResource RhythmH3}" Text="Réglages" />
+                    <Label Style="{StaticResource RhythmCaption}"
+                           Text="Une seule fiche utilisateur pour toute l’application (séances, stats, charges)." />
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Nom affiché" />
+                        <Entry x:Name="DisplayNameEntry" Placeholder="Ton prénom" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Biologie (estimation dépense)" />
+                        <Picker x:Name="SexPicker" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Âge (optionnel)" />
+                        <Entry x:Name="AgeEntry"
+                               Keyboard="Numeric"
+                               Placeholder="30" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Poids (balance)" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="WeightEntry"
+                                   Grid.Column="0"
+                                   Keyboard="Numeric"
+                                   Placeholder="75" />
+                            <Label Grid.Column="1"
+                                   VerticalOptions="Center"
+                                   TextColor="{StaticResource RhythmTextSecondary}"
+                                   Text="kg" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Taille (optionnel)" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="HeightEntry"
+                                   Grid.Column="0"
+                                   Keyboard="Numeric"
+                                   Placeholder="178" />
+                            <Label Grid.Column="1"
+                                   VerticalOptions="Center"
+                                   TextColor="{StaticResource RhythmTextSecondary}"
+                                   Text="cm" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Button Margin="0,8,0,0"
+                            x:Name="SaveProfileBtn"
+                            SemanticProperties.Hint="Enregistrer nom, sexe, poids, taille"
+                            Text="Enregistrer"
+                            Clicked="OnSaveProfileClicked" />
+
+                    <Button Text="Se déconnecter"
+                            Style="{StaticResource RhythmBtnGhost}"
+                            Clicked="OnSignOutClicked" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

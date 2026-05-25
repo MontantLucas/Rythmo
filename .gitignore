@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+Rhythmo.Mobile/Resources/Raw/supabase.env
+bin/
+obj/
+*.user
+*.suo

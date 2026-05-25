@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.FriendsPage"
+             Title="Amis"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource RhythmBg}">
+    <RefreshView x:Name="FriendsRefresh">
+        <ScrollView>
+            <VerticalStackLayout x:Name="RootStack"
+                                 Padding="20,12,20,28"
+                                 Spacing="0">
+                <ContentView x:Name="LeaderboardHost" />
+                <ContentView x:Name="PrSectionHeaderHost" />
+                <VerticalStackLayout x:Name="PrFeedHost" Spacing="0" />
+                <ContentView x:Name="ActivityHost" />
+                <ContentView x:Name="StreaksHost" />
+                <ContentView x:Name="BadgesSectionHeaderHost" />
+                <ContentView x:Name="BadgesHost" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

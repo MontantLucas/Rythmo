@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.WorkoutRunnerPage"
+             Title="Séance en cours">
+    <Grid Padding="{OnIdiom Phone='18', Default='26'}"
+          RowDefinitions="Auto,* ,Auto"
+          RowSpacing="18">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="12">
+            <HorizontalStackLayout HorizontalOptions="End" Spacing="0">
+                <Button Style="{StaticResource RhythmBtnGhost}"
+                        Text="Annuler"
+                        SemanticProperties.Hint="Quitter cette séance sans enregistrer"
+                        Clicked="OnAbandonSessionClicked" />
+            </HorizontalStackLayout>
+            <Label x:Name="SessionMetaSmall"
+                   Style="{StaticResource RhythmCaption}"
+                   LineBreakMode="TailTruncation" />
+            <ProgressBar x:Name="ExerciseProgressBar"
+                         HeightRequest="6"
+                         Progress="0" />
+            <Label x:Name="ExerciseCounterLabel"
+                   Style="{StaticResource RhythmCaption}" />
+            <Label x:Name="ExerciseTitleLabel"
+                   Style="{StaticResource RhythmH2}"
+                   LineBreakMode="WordWrap" />
+            <Label x:Name="ExerciseCategoryLabel"
+                   Style="{StaticResource RhythmCaption}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout x:Name="ActiveExerciseRoot"
+                                 Spacing="12"
+                                 Padding="0,4,0,12" />
+        </ScrollView>
+
+        <VerticalStackLayout Grid.Row="2"
+                             Spacing="14">
+            <Button Style="{StaticResource RhythmBtnSecondary}"
+                    Text="+ série"
+                    Clicked="OnAddSetClicked" />
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="12">
+                <Button x:Name="PrevExerciseBtn"
+                        Grid.Column="0"
+                        Style="{StaticResource RhythmBtnSecondary}"
+                        Text="← Précédent"
+                        Clicked="OnPrevExerciseClicked" />
+                <Button x:Name="NextExerciseBtn"
+                        Grid.Column="1"
+                        Text="Suivant →"
+                        Clicked="OnNextExerciseClicked" />
+            </Grid>
+            <Button x:Name="FinalizeBtn"
+                    Style="{StaticResource RhythmBtnFinish}"
+                    Text="✓ Terminer la séance"
+                    Clicked="OnFinalizeClicked" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

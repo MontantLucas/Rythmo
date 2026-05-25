@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Shell
+
+    x:Class="Rhythmo.Mobile.AppShell"
+
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+
+    xmlns:pages="clr-namespace:Rhythmo.Mobile"
+
+    Title="Rhythmo"
+
+    Shell.NavBarHasShadow="False">
+
+
+
+    <TabBar>
+
+        <ShellContent
+
+            Title="Accueil"
+
+            ContentTemplate="{DataTemplate pages:DashboardPage}"
+
+            Icon="tab_home.svg"
+
+            Route="DashboardPage" />
+
+        <ShellContent
+
+            Title="Séances"
+
+            ContentTemplate="{DataTemplate pages:SessionsPage}"
+
+            Icon="tab_sessions.svg"
+
+            Route="SessionsPage" />
+
+        <ShellContent
+
+            Title="Exercices"
+
+            ContentTemplate="{DataTemplate pages:CatalogPage}"
+
+            Icon="tab_exercises.svg"
+
+            Route="CatalogPage" />
+
+        <ShellContent
+
+            Title="Stats"
+
+            ContentTemplate="{DataTemplate pages:StatsPage}"
+
+            Icon="tab_stats.svg"
+
+            Route="StatsPage" />
+
+        <ShellContent
+
+            Title="Amis"
+
+            ContentTemplate="{DataTemplate pages:FriendsPage}"
+
+            Icon="tab_friends.svg"
+
+            Route="FriendsPage" />
+
+        <ShellContent
+
+            Title="Profil"
+
+            ContentTemplate="{DataTemplate pages:ProfilesPage}"
+
+            Icon="tab_profile.svg"
+
+            Route="ProfilesPage" />
+
+    </TabBar>
+
+
+
+</Shell>

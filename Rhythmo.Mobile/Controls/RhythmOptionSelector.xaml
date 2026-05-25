@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.Controls.RhythmOptionSelector"
+             x:Name="Self">
+    <VerticalStackLayout Spacing="0">
+        <Border x:Name="TriggerBorder"
+                Padding="16,14"
+                MinimumHeightRequest="48"
+                BackgroundColor="{StaticResource RhythmSurface1}"
+                StrokeThickness="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="14" />
+            </Border.StrokeShape>
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnTriggerTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Label x:Name="ValueLabel"
+                       FontFamily="OpenSansRegular"
+                       FontSize="15"
+                       TextColor="{StaticResource RhythmTextPrimary}"
+                       VerticalOptions="Center"
+                       LineBreakMode="TailTruncation"
+                       MaxLines="2" />
+                <Label Grid.Column="1"
+                       FontSize="13"
+                       Text="▾"
+                       TextColor="{StaticResource RhythmTextSecondary}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+        <Border x:Name="DropdownPanel"
+                IsVisible="False"
+                Margin="0,8,0,0"
+                Padding="6,4"
+                BackgroundColor="{StaticResource RhythmSurface2}"
+                StrokeThickness="0"
+                MaximumHeightRequest="260">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="14" />
+            </Border.StrokeShape>
+            <CollectionView x:Name="OptionsView"
+                          SelectionMode="Single"
+                          SelectionChanged="OnOptionSelected">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="14,12"
+                                BackgroundColor="Transparent"
+                                StrokeThickness="0">
+                            <Label FontSize="15"
+                                   Text="{Binding .}"
+                                   TextColor="{StaticResource RhythmTextPrimary}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Border>
+    </VerticalStackLayout>
+</ContentView>

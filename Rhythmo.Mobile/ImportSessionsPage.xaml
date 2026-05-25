@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.ImportSessionsPage"
+             Title="Importer une séance"
+             Shell.NavBarIsVisible="True">
+
+    <ScrollView Padding="20">
+        <VerticalStackLayout Spacing="20">
+            <Label Style="{StaticResource RhythmCaption}"
+                   Text="Choisis un utilisateur, puis une de ses séances à copier dans ton compte." />
+
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmH3}" Text="Utilisateur" />
+                <Picker x:Name="UserPicker" SelectedIndexChanged="OnUserSelected" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmH3}" Text="Séances disponibles" />
+                <CollectionView x:Name="SessionsList"
+                                SelectionMode="Single"
+                                SelectionChanged="OnSessionSelected"
+                                HeightRequest="320"
+                                EmptyView="Sélectionne un utilisateur.">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,10" Padding="16"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{StaticResource RhythmSurface1}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="4">
+                                    <Label FontFamily="OpenSansSemibold"
+                                           FontSize="16"
+                                           Text="{Binding Title}" />
+                                    <Label FontSize="12"
+                                           TextColor="{StaticResource RhythmTextSecondary}"
+                                           Text="{Binding Meta}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <Button x:Name="ImportBtn"
+                    Text="Importer la séance sélectionnée"
+                    Style="{StaticResource RhythmBtnPrimary}"
+                    IsEnabled="False"
+                    Clicked="OnImportClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

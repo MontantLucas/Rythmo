@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Rhythmo.Mobile"
+             x:Class="Rhythmo.Mobile.LoginPage"
+             Title="Connexion"
+             BackgroundColor="{StaticResource RhythmBgDeep}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28" Spacing="20" MaximumWidthRequest="420">
+
+            <VerticalStackLayout Spacing="8" Margin="0,12,0,8">
+                <Label Text="Rhythmo"
+                       Style="{StaticResource RhythmH2}"
+                       HorizontalOptions="Center" />
+                <Label Text="Synchronise ton entraînement avec la communauté."
+                       Style="{StaticResource RhythmCaption}"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="E-mail"
+                       Style="{StaticResource RhythmCaption}" />
+                <Border Style="{StaticResource RhythmFieldBorder}">
+                    <Entry x:Name="EmailEntry"
+                           Placeholder="ton@email.com"
+                           Keyboard="Email"
+                           BackgroundColor="Transparent"
+                           Margin="4,0" />
+                </Border>
+            </VerticalStackLayout>
+
+            <Button x:Name="SendLinkBtn"
+                    Text="Recevoir un lien magique"
+                    Clicked="OnSendLinkClicked"
+                    Style="{StaticResource RhythmBtnPrimary}" />
+
+            <Grid ColumnDefinitions="*,Auto,*" Margin="0,4">
+                <BoxView Grid.Column="0"
+                         HeightRequest="1"
+                         Color="{StaticResource RhythmSurface2}"
+                         VerticalOptions="Center" />
+                <Label Grid.Column="1"
+                       Text="ou"
+                       Style="{StaticResource RhythmCaption}"
+                       Margin="12,0" />
+                <BoxView Grid.Column="2"
+                         HeightRequest="1"
+                         Color="{StaticResource RhythmSurface2}"
+                         VerticalOptions="Center" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Mot de passe"
+                       Style="{StaticResource RhythmCaption}" />
+                <Border Style="{StaticResource RhythmFieldBorder}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="0">
+                        <Entry x:Name="PasswordEntry"
+                               Grid.Column="0"
+                               Placeholder="••••••••"
+                               IsPassword="True"
+                               BackgroundColor="Transparent"
+                               Margin="4,0,0,0" />
+                        <Button x:Name="TogglePasswordBtn"
+                                Grid.Column="1"
+                                Text="{x:Static local:LoginPageGlyphs.VisibilityOff}"
+                                FontFamily="{x:Static local:LoginPageGlyphs.Font}"
+                                FontSize="22"
+                                TextColor="{StaticResource RhythmTextSecondary}"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                Padding="12,0"
+                                MinimumWidthRequest="48"
+                                MinimumHeightRequest="46"
+                                Clicked="OnTogglePasswordClicked" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+
+            <Button x:Name="PasswordSignInBtn"
+                    Text="Connexion par mot de passe"
+                    Clicked="OnPasswordSignInClicked"
+                    Style="{StaticResource RhythmBtnSecondary}" />
+
+            <Label x:Name="StatusLabel"
+                   Style="{StaticResource RhythmCaption}"
+                   TextColor="{StaticResource RhythmAccent}"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,8,0,24" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

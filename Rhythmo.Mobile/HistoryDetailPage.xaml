@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.HistoryDetailPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource RhythmBg}">
+    <Grid Padding="{OnIdiom Phone='16,48,16,16', Default='28,52,28,28'}"
+          RowDefinitions="Auto,*">
+        <Button x:Name="BackBtn"
+                Grid.Row="0"
+                BackgroundColor="{StaticResource RhythmSurface2}"
+                BorderWidth="0"
+                CornerRadius="14"
+                FontSize="16"
+                Padding="12,8"
+                Text="←"
+                TextColor="{StaticResource RhythmTextPrimary}"
+                HorizontalOptions="Start"
+                Margin="0,0,0,12"
+                Clicked="OnBackClicked" />
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16">
+                <Border Padding="20"
+                        StrokeThickness="0"
+                        BackgroundColor="{StaticResource RhythmSurface1}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label x:Name="HeaderLabel"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="18"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Label x:Name="MetaLabel"
+                               FontSize="13"
+                               TextColor="{StaticResource RhythmTextSecondary}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label FontFamily="OpenSansSemibold"
+                       FontSize="15"
+                       Text="Détail de la séance"
+                       TextColor="{StaticResource RhythmTextPrimary}" />
+
+                <VerticalStackLayout x:Name="ExerciseDetailHost" Spacing="12" />
+
+                <Button Text="Supprimer cette entrée"
+                        Style="{StaticResource RhythmBtnGhost}"
+                        Clicked="OnDeleteClicked" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

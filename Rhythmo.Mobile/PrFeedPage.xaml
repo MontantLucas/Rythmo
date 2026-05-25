@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
+             x:Class="Rhythmo.Mobile.PrFeedPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource RhythmBg}">
+
+    <Grid Padding="{OnIdiom Phone='16,48,16,16', Default='28,22'}"
+          RowDefinitions="Auto,Auto,*">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              HeightRequest="44"
+              Margin="0,0,0,16">
+            <Button x:Name="BackBtn"
+                    Grid.Column="0"
+                    BackgroundColor="{StaticResource RhythmSurface2}"
+                    BorderWidth="0"
+                    CornerRadius="14"
+                    FontSize="16"
+                    Padding="12,8"
+                    Text="←"
+                    TextColor="{StaticResource RhythmTextPrimary}"
+                    SemanticProperties.Hint="Retour"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Center" />
+
+            <VerticalStackLayout Grid.Column="1"
+                                 Spacing="0"
+                                 VerticalOptions="Center">
+                <Label Style="{StaticResource RhythmH2}"
+                       Text="Tous les PR" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Border Grid.Row="1"
+                Padding="18"
+                StrokeThickness="0"
+                BackgroundColor="{StaticResource RhythmSurface1}"
+                Margin="0,0,0,16">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="22" />
+            </Border.StrokeShape>
+
+            <VerticalStackLayout Spacing="14">
+                <HorizontalStackLayout x:Name="PeriodTabsHost"
+                                       Spacing="8" />
+
+                <VerticalStackLayout Spacing="10">
+                    <controls:RhythmOptionSelector x:Name="UserFilterSelector"
+                                                   SelectedIndexChanged="OnUserFilterChanged" />
+                    <controls:RhythmOptionSelector x:Name="ExerciseFilterSelector"
+                                                   SelectedIndexChanged="OnExerciseFilterChanged" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+
+        <RefreshView x:Name="PrRefresh"
+                     Grid.Row="2">
+            <ScrollView>
+                <VerticalStackLayout x:Name="PrFeedHost"
+                                     Spacing="0"
+                                     Padding="0,0,0,32" />
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

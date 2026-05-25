@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rhythmo.Shared", "Rhythmo.Shared\Rhythmo.Shared.csproj", "{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rhythmo.Mobile", "Rhythmo.Mobile\Rhythmo.Mobile.csproj", "{9C330D2D-77D9-4945-9E6E-624E858ABC67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rhythmo.Shared.Tests", "Rhythmo.Shared.Tests\Rhythmo.Shared.Tests.csproj", "{E7B30638-57C3-4E56-94CC-E7E0456781E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|x64.Build.0 = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Debug|x86.Build.0 = Debug|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|x64.ActiveCfg = Release|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|x64.Build.0 = Release|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|x86.ActiveCfg = Release|Any CPU
+		{E78D18C0-F531-4B61-BEF1-FC0C8BD026F4}.Release|x86.Build.0 = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|x64.Build.0 = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Debug|x86.Build.0 = Debug|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|x64.ActiveCfg = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|x64.Build.0 = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|x86.ActiveCfg = Release|Any CPU
+		{9C330D2D-77D9-4945-9E6E-624E858ABC67}.Release|x86.Build.0 = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|x64.Build.0 = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Debug|x86.Build.0 = Debug|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|x64.ActiveCfg = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|x64.Build.0 = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|x86.ActiveCfg = Release|Any CPU
+		{E7B30638-57C3-4E56-94CC-E7E0456781E7}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

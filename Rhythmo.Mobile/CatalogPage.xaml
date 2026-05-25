@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
+             x:Class="Rhythmo.Mobile.CatalogPage"
+             Title="Exercices"
+             Shell.NavBarIsVisible="False">
+    <Grid Padding="{OnIdiom Phone='20,16', Default='28,22'}"
+          RowDefinitions="Auto,Auto,*">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="16">
+            <Label Style="{StaticResource RhythmH2}" Text="Bibliothèque" />
+            <Label Style="{StaticResource RhythmCaption}"
+                   Text="Parcourez vite les mouvements par groupe musculaire." />
+            <controls:RhythmSearchField x:Name="ExerciseSearchBar"
+                                        Placeholder="Rechercher un exercice…"
+                                        TextChanged="OnSearchChanged" />
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1"
+                             Margin="0,12,0,12"
+                             Spacing="6">
+            <Label Style="{StaticResource RhythmCaption}"
+                   Text="Catégorie" />
+            <controls:RhythmOptionSelector x:Name="CatalogCategorySelector"
+                                           SemanticProperties.Hint="Filtrer par groupe musculaire"
+                                           SelectedIndexChanged="OnCatalogCategoryChanged" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="2"
+                        x:Name="List"
+                        EmptyView="Aucun mouvement pour ce filtre.">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Margin="0,0,0,12"
+                            Padding="18"
+                            StrokeThickness="0"
+                            BackgroundColor="{StaticResource RhythmSurface1}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="20" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="10">
+                            <Label FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   Text="{Binding Category}"
+                                   TextColor="{StaticResource RhythmAccent}" />
+                            <Label FontSize="17"
+                                   LineBreakMode="WordWrap"
+                                   Text="{Binding NameFr}"
+                                   TextColor="{StaticResource RhythmTextPrimary}" />
+                            <HorizontalStackLayout Spacing="14">
+                                <Label FontSize="13"
+                                       Text="{Binding MetaLine}"
+                                       TextColor="{StaticResource RhythmTextSecondary}"
+                                       VerticalOptions="Center" />
+                                <Border Padding="10,4"
+                                        StrokeThickness="0"
+                                        BackgroundColor="{StaticResource RhythmSurface2}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="12" />
+                                    </Border.StrokeShape>
+                                    <Label FontSize="12"
+                                           Text="MET"
+                                           TextColor="{StaticResource RhythmTextSecondary}"
+                                           VerticalOptions="Center" />
+                                </Border>
+                                <Label FontSize="13"
+                                       FontAttributes="Bold"
+                                       Text="{Binding MetFormatted}"
+                                       TextColor="{StaticResource RhythmTextPrimary}"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

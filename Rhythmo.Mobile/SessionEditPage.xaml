@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
+             x:Class="Rhythmo.Mobile.SessionEditPage"
+             NavigationPage.HasNavigationBar="False"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource RhythmBg}">
+
+    <Grid x:Name="PageGrid"
+          Padding="{OnIdiom Phone='16,48,16,16', Default='28,52,28,28'}"
+          RowDefinitions="Auto,*,Auto"
+          RowSpacing="16">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="12"
+              HeightRequest="44">
+            <Button x:Name="BackBtn"
+                    Grid.Column="0"
+                    BackgroundColor="{StaticResource RhythmSurface2}"
+                    BorderWidth="0"
+                    CornerRadius="14"
+                    FontSize="16"
+                    Padding="12,8"
+                    Text="←"
+                    TextColor="{StaticResource RhythmTextPrimary}"
+                    SemanticProperties.Hint="Retour"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Center" />
+            <Label Grid.Column="1"
+                   HorizontalTextAlignment="Center"
+                   VerticalOptions="Center"
+                   LineBreakMode="TailTruncation"
+                   MaxLines="1"
+                   FontFamily="OpenSansSemibold"
+                   FontSize="16"
+                   Text="Construire la séance"
+                   TextColor="{StaticResource RhythmTextPrimary}" />
+            <Button x:Name="FinishBtn"
+                    Grid.Column="2"
+                    BackgroundColor="{StaticResource RhythmAccent}"
+                    BorderWidth="0"
+                    CornerRadius="14"
+                    FontFamily="OpenSansSemibold"
+                    FontSize="14"
+                    Padding="14,10"
+                    Text="Terminer"
+                    TextColor="{StaticResource RhythmBg}"
+                    HorizontalOptions="End"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <Grid Grid.Row="1" RowSpacing="0">
+            <ScrollView>
+                <VerticalStackLayout x:Name="MainScrollContent" Spacing="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label FontSize="12"
+                               Text="Nom de la séance"
+                               TextColor="{StaticResource RhythmTextSecondary}" />
+                        <Border Padding="0"
+                                BackgroundColor="{StaticResource RhythmSurface1}"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <Border.Shadow>
+                                <Shadow Brush="#40000000"
+                                        Opacity="0.35"
+                                        Radius="10"
+                                        Offset="0,3" />
+                            </Border.Shadow>
+                            <Entry x:Name="TitleEntry"
+                                   Margin="16,12"
+                                   BackgroundColor="Transparent"
+                                   Placeholder="Ma séance"
+                                   PlaceholderColor="{StaticResource RhythmTextSecondary}"
+                                   TextColor="{StaticResource RhythmTextPrimary}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Grid.Column="0"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="15"
+                               Text="Exercices"
+                               TextColor="{StaticResource RhythmTextPrimary}"
+                               VerticalOptions="Center" />
+                        <Border Grid.Column="1"
+                                Padding="10,5"
+                                BackgroundColor="{StaticResource RhythmSurface2}"
+                                StrokeThickness="0"
+                                VerticalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label x:Name="ExerciseCountBadge"
+                                   FontSize="12"
+                                   Text="0 exercice"
+                                   TextColor="{StaticResource RhythmViolet}" />
+                        </Border>
+                    </Grid>
+
+                    <VerticalStackLayout x:Name="EmptySessionHint"
+                                         IsVisible="False"
+                                         Spacing="12"
+                                         Padding="0,8">
+                        <Border Padding="24"
+                                BackgroundColor="{StaticResource RhythmSurface1}"
+                                StrokeDashArray="6,6"
+                                StrokeThickness="1"
+                                Stroke="{StaticResource RhythmTextSecondary}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18" />
+                            </Border.StrokeShape>
+                            <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
+                    <Label FontSize="28"
+                                       HorizontalTextAlignment="Center"
+                                       Text="🏋"
+                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                <Label FontSize="14"
+                                       HorizontalTextAlignment="Center"
+                                       Text="Aucun exercice ajouté"
+                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                <Button BackgroundColor="{StaticResource RhythmAccent}"
+                                        CornerRadius="14"
+                                        FontFamily="OpenSansSemibold"
+                                        Padding="18,12"
+                                        Text="Ajouter un exercice"
+                                        TextColor="{StaticResource RhythmBg}"
+                                        Clicked="OnEmptyAddClicked" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout x:Name="OrderedHost" Spacing="10" />
+
+                    <Border Margin="0,4,0,0"
+                            Padding="14,14"
+                            BackgroundColor="Transparent"
+                            Stroke="{StaticResource RhythmAccent}"
+                            StrokeThickness="1.2">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="16" />
+                        </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnOpenAddSheetClicked" />
+                        </Border.GestureRecognizers>
+                        <Label HorizontalTextAlignment="Center"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="15"
+                               Text="+  Ajouter un exercice"
+                               TextColor="{StaticResource RhythmAccent}" />
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+
+        </Grid>
+
+        <Button Grid.Row="2"
+                x:Name="SaveBtn"
+                BackgroundColor="{StaticResource RhythmAccent}"
+                CornerRadius="16"
+                FontFamily="OpenSansSemibold"
+                FontSize="16"
+                HeightRequest="52"
+                Text="Enregistrer la séance"
+                TextColor="{StaticResource RhythmBg}"
+                Clicked="OnSaveClicked" />
+
+        <Grid x:Name="AddSheetOverlay"
+              Grid.RowSpan="3"
+              IsVisible="False"
+              InputTransparent="True"
+              ZIndex="50"
+              RowDefinitions="*,Auto">
+            <ContentView Grid.Row="0" BackgroundColor="{StaticResource RhythmOverlay}">
+                <ContentView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnAddSheetBackdropTapped" />
+                </ContentView.GestureRecognizers>
+            </ContentView>
+            <Border x:Name="AddSheetPanel"
+                    Grid.Row="1"
+                    Margin="8,0,8,16"
+                    Padding="0,0,0,12"
+                    BackgroundColor="{StaticResource RhythmSurface2}"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#60000000" Opacity="0.4" Radius="24" Offset="0,-4" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="0">
+                    <Grid Padding="18,16,12,8" ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="18"
+                               Text="Ajouter un exercice"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Button Grid.Column="1"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                FontSize="18"
+                                Padding="8"
+                                Text="✕"
+                                TextColor="{StaticResource RhythmTextSecondary}"
+                                Clicked="OnCloseAddSheetClicked" />
+                    </Grid>
+                    <controls:RhythmSearchField x:Name="AddSheetSearchBar"
+                                                Margin="12,0,12,8"
+                                                Placeholder="Rechercher un exercice…" />
+                    <VerticalStackLayout Margin="12,0,12,12" Spacing="6">
+                        <Label FontSize="12"
+                               Text="Groupe musculaire"
+                               TextColor="{StaticResource RhythmTextSecondary}" />
+                        <controls:RhythmOptionSelector x:Name="AddSheetCategorySelector"
+                                                       SemanticProperties.Hint="Filtrer la liste par groupe musculaire"
+                                                       SelectedIndexChanged="OnAddSheetCategoryPickerChanged" />
+                    </VerticalStackLayout>
+                    <ScrollView x:Name="AddCatalogScroll"
+                                MaximumHeightRequest="420"
+                                Margin="0,0,0,4">
+                        <VerticalStackLayout x:Name="AddCatalogHost" Spacing="8" Padding="12,0,12,8" />
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ActionSheetOverlay"
+              Grid.RowSpan="3"
+              IsVisible="False"
+              InputTransparent="True"
+              ZIndex="60"
+              RowDefinitions="*,Auto">
+            <ContentView Grid.Row="0" BackgroundColor="{StaticResource RhythmOverlay}">
+                <ContentView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnActionSheetBackdropTapped" />
+                </ContentView.GestureRecognizers>
+            </ContentView>
+            <Border x:Name="ActionSheetPanel"
+                    Grid.Row="1"
+                    Margin="8,0,8,16"
+                    Padding="18,20,18,16"
+                    BackgroundColor="{StaticResource RhythmSurface2}"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label x:Name="ActionSheetTitle"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="15"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{StaticResource RhythmTextPrimary}" />
+                    <Label x:Name="ActionSheetSubtitle"
+                           FontSize="12"
+                           TextColor="{StaticResource RhythmTextSecondary}" />
+                    <BoxView HeightRequest="1"
+                             Color="{StaticResource RhythmSurface1}"
+                             Margin="0,4" />
+                    <Button x:Name="ActionEditBtn"
+                            BackgroundColor="{StaticResource RhythmSurface1}"
+                            BorderWidth="0"
+                            CornerRadius="14"
+                            FontFamily="OpenSansSemibold"
+                            HeightRequest="48"
+                            Text="Modifier"
+                            TextColor="{StaticResource RhythmTextPrimary}"
+                            Clicked="OnActionEditClicked" />
+                    <Button x:Name="ActionDupBtn"
+                            BackgroundColor="{StaticResource RhythmSurface1}"
+                            BorderWidth="0"
+                            CornerRadius="14"
+                            FontFamily="OpenSansSemibold"
+                            HeightRequest="48"
+                            Text="Dupliquer"
+                            TextColor="{StaticResource RhythmTextPrimary}"
+                            Clicked="OnActionDupClicked" />
+                    <Button x:Name="ActionDelBtn"
+                            BackgroundColor="#22EF4444"
+                            BorderWidth="0"
+                            CornerRadius="14"
+                            FontFamily="OpenSansSemibold"
+                            HeightRequest="48"
+                            Text="Supprimer"
+                            TextColor="White"
+                            Clicked="OnActionDeleteClicked" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

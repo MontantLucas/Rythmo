@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
+             x:Class="Rhythmo.Mobile.SessionsPage"
+             Title="Séances"
+             Shell.NavBarIsVisible="False">
+    <Grid>
+        <RefreshView x:Name="SessionsRefresh">
+            <Grid Padding="{OnIdiom Phone='20,16', Default='28,22'}"
+                  RowDefinitions="Auto,*">
+                <VerticalStackLayout Grid.Row="0" Spacing="14">
+                    <Label Style="{StaticResource RhythmH2}" Text="Tes séances" />
+                    <controls:RhythmSearchField x:Name="SessionSearchBar"
+                                                Placeholder="Rechercher une séance…"
+                                                TextChanged="OnSessionSearchChanged" />
+                </VerticalStackLayout>
+
+                <CollectionView x:Name="SessionsList"
+                                  Grid.Row="1"
+                                  Margin="0,18,0,96"
+                                  SelectionMode="Single"
+                                  SelectionChanged="OnSessionSelectionChanged"
+                                  EmptyView="Crée ta première séance depuis le bouton +.">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,14"
+                                    Padding="20"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{StaticResource RhythmSurface1}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="22" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="18"
+                                               LineBreakMode="TailTruncation"
+                                               Text="{Binding Title}"
+                                               TextColor="{StaticResource RhythmTextPrimary}" />
+                                        <Label Grid.Column="1"
+                                               VerticalOptions="Start"
+                                               FontSize="22"
+                                               Text="⋯"
+                                               TextColor="{StaticResource RhythmTextSecondary}" />
+                                    </Grid>
+                                    <Label FontSize="13"
+                                           LineBreakMode="WordWrap"
+                                           Text="{Binding ChipTags}"
+                                           TextColor="{StaticResource RhythmAccent}" />
+                                    <Label FontSize="13"
+                                           Text="{Binding MetaLine}"
+                                           TextColor="{StaticResource RhythmTextSecondary}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </RefreshView>
+
+        <VerticalStackLayout HorizontalOptions="End"
+                             VerticalOptions="End"
+                             Margin="0,0,22,92"
+                             Spacing="12">
+            <VerticalStackLayout x:Name="FabMenuPanel"
+                                 IsVisible="False"
+                                 Spacing="10"
+                                 HorizontalOptions="End">
+                <Button Padding="16,12"
+                        CornerRadius="16"
+                        BackgroundColor="{StaticResource RhythmSurface2}"
+                        TextColor="{StaticResource RhythmTextPrimary}"
+                        Text="Nouvelle séance"
+                        Clicked="OnFabNewSession" />
+                <Button Padding="16,12"
+                        CornerRadius="16"
+                        BackgroundColor="{StaticResource RhythmSurface2}"
+                        TextColor="{StaticResource RhythmTextPrimary}"
+                        Text="Démarrage rapide"
+                        Clicked="OnFabQuickStart" />
+                <Button Padding="16,12"
+                        CornerRadius="16"
+                        BackgroundColor="{StaticResource RhythmSurface2}"
+                        TextColor="{StaticResource RhythmTextPrimary}"
+                        Text="Bibliothèque exercices"
+                        Clicked="OnFabOpenCatalog" />
+                <Button Padding="16,12"
+                        CornerRadius="16"
+                        BackgroundColor="{StaticResource RhythmSurface2}"
+                        TextColor="{StaticResource RhythmTextSecondary}"
+                        Text="Importer…"
+                        Clicked="OnFabImport" />
+            </VerticalStackLayout>
+            <Button x:Name="FabMainBtn"
+                    WidthRequest="58"
+                    HeightRequest="58"
+                    CornerRadius="29"
+                    Padding="0"
+                    FontSize="26"
+                    Text="+"
+                    BackgroundColor="{StaticResource RhythmAccent}"
+                    TextColor="{StaticResource RhythmBg}"
+                    SemanticProperties.Hint="Actions rapides séances"
+                    Clicked="OnFabMainClicked" />
+        </VerticalStackLayout>
+
+        <Grid x:Name="SheetOverlay"
+              IsVisible="False"
+              BackgroundColor="{StaticResource RhythmOverlay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ContentView Grid.Row="0" BackgroundColor="Transparent">
+                <ContentView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSheetBackdropTapped" />
+                </ContentView.GestureRecognizers>
+            </ContentView>
+
+            <Border Grid.Row="1"
+                    Margin="12,0,12,24"
+                    Padding="22"
+                    StrokeThickness="0"
+                    BackgroundColor="{StaticResource RhythmSurface2}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Label x:Name="SheetTitleLabel"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="20"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{StaticResource RhythmTextPrimary}" />
+                    <Button Text="▶ Démarrer cette séance"
+                            Clicked="OnSheetStart" />
+                    <Button Style="{StaticResource RhythmBtnSecondary}"
+                            Text="Modifier"
+                            Clicked="OnSheetEdit" />
+                    <Button Style="{StaticResource RhythmBtnGhost}"
+                            Text="Dupliquer"
+                            Clicked="OnSheetDuplicate" />
+                    <Button TextColor="{StaticResource RhythmWarning}"
+                            BackgroundColor="Transparent"
+                            Text="Supprimer la séance"
+                            Clicked="OnSheetDelete" />
+                    <Button Style="{StaticResource RhythmBtnGhost}"
+                            Text="Fermer"
+                            Clicked="OnSheetClose" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

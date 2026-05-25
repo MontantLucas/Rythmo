@@ -1,0 +1,515 @@
+using System.Globalization;
+using System.Linq;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.ApplicationModel;
+using Rhythmo.Mobile.Data;
+using Rhythmo.Mobile.Infrastructure;
+using Rhythmo.Mobile.Services;
+using Rhythmo.Mobile.Social;
+using Rhythmo.Mobile.Theme;
+using Rhythmo.Shared;
+using Rhythmo.Shared.Contracts;
+
+namespace Rhythmo.Mobile;
+
+[QueryProperty(nameof(SessionIdEncoded), "SessionId")]
+public partial class WorkoutRunnerPage : ContentPage
+{
+	private static readonly JsonSerializerOptions JsonSnake = new()
+	{
+		PropertyNameCaseInsensitive = true,
+		ReadCommentHandling = JsonCommentHandling.Skip,
+		AllowTrailingCommas = true,
+		WriteIndented = false,
+	};
+
+	private Guid _sid;
+	private readonly List<ExerciseUi> _blocks = [];
+	private SessionTemplateRow? _tpl;
+	private ProfileRow? _profile;
+	private bool _sessionUiReady;
+
+	private int _currentExerciseIndex;
+
+	private readonly IDevErrorPresenter _dev =
+		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
+
+	public string SessionIdEncoded
+	{
+		set =>
+			_sid = Guid.Parse(Uri.UnescapeDataString(value ?? throw new ArgumentNullException(nameof(value))));
+	}
+
+	public WorkoutRunnerPage()
+	{
+		InitializeComponent();
+	}
+
+	private async void OnAbandonSessionClicked(object? sender, EventArgs e)
+	{
+		var abandon = await DisplayAlertAsync(
+			"Annuler la séance ?",
+			"Tu quitteras sans enregistrer de résultat (pas d’historique ni de mise à jour des charges).",
+			"Oui, annuler",
+			"Non").ConfigureAwait(true);
+
+		if (!abandon)
+			return;
+
+		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+	}
+
+	private sealed class ExerciseUi
+	{
+		public required Guid ExerciseId { get; init; }
+		public required string Title { get; init; }
+		public required string Category { get; init; }
+		public double Met { get; init; }
+		public double HintKg { get; init; }
+
+		public required SessionExerciseRow TemplateLine { get; init; }
+
+		public VerticalStackLayout RowsWrapper { get; } = new() { Spacing = 12 };
+
+		public List<(Entry Reps, Entry Kg)> RowEntries { get; } = [];
+
+		public List<double?> RowKgHints { get; } = [];
+	}
+
+	protected override async void OnAppearing()
+	{
+		base.OnAppearing();
+		await RefreshAsync().ConfigureAwait(true);
+	}
+
+	private async Task RefreshAsync()
+	{
+		try
+		{
+			if (_sessionUiReady && _tpl is not null)
+				return;
+
+			_blocks.Clear();
+			_currentExerciseIndex = 0;
+
+			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+			var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+			_tpl = await repo.GetSessionTemplateAsync(_sid).ConfigureAwait(true);
+
+			if (_tpl is null)
+			{
+				await DisplayAlertAsync("Séance", "Introuvable.", "OK").ConfigureAwait(false);
+				await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+				return;
+			}
+
+			_profile = await repo.GetProfileAsync(activeProfileId).ConfigureAwait(true)
+			           ?? throw new InvalidOperationException("Profil introuvable.");
+
+			SessionMetaSmall.Text =
+				$"{_tpl.Title} · {_profile.DisplayName} · {(_profile.BiologicalSex == BiologicalSex.Male ? "homme" : "femme")} · {FormatKg(_profile.WeightKg)}";
+
+			SessionLastSnapshotRow? snapRow = await repo.GetSessionSnapshotAsync(_sid).ConfigureAwait(true);
+
+			Dictionary<Guid, List<(int reps, double weight)>>? prefs = null;
+			if (!string.IsNullOrWhiteSpace(snapRow?.Json))
+			{
+				var env = JsonSerializer.Deserialize<LastRunEnvelope>(snapRow.Json, JsonSnake);
+				if (env?.Exercises is { Count: > 0 })
+				{
+					prefs = new Dictionary<Guid, List<(int, double)>>();
+					foreach (var ex in env.Exercises)
+					{
+						var list = new List<(int, double)>();
+						foreach (var s in ex.Sets)
+							list.Add((s.Reps, s.WeightKg));
+						prefs[ex.ExerciseId] = list;
+					}
+				}
+			}
+
+			var allWeights = new Dictionary<Guid, double>();
+			var tplLines = await repo.ListSessionExercisesAsync(_sid).ConfigureAwait(true);
+			var weightRows = await Task.WhenAll(tplLines.Select(line =>
+				repo.GetLastWeightAsync(activeProfileId, line.ExerciseId))).ConfigureAwait(true);
+			for (var i = 0; i < tplLines.Count; i++)
+			{
+				if (weightRows[i] is { } w)
+					allWeights[tplLines[i].ExerciseId] = w.WeightKg;
+			}
+
+			var hints = allWeights;
+			var exerciseById = (await repo.ListExercisesAsync().ConfigureAwait(true))
+				.ToDictionary(x => x.Id);
+
+			await MainThread.InvokeOnMainThreadAsync(() =>
+			{
+				foreach (var line in tplLines)
+				{
+					if (!exerciseById.TryGetValue(line.ExerciseId, out var cx))
+						continue;
+
+					hints.TryGetValue(cx.Id, out var hintKg);
+
+					var prefsList = prefs is not null && prefs.TryGetValue(cx.Id, out var pl)
+						? pl
+						: null;
+
+					var blk = new ExerciseUi
+					{
+						ExerciseId = cx.Id,
+						Title = cx.NameFr,
+						Category = string.IsNullOrWhiteSpace(cx.Category) ? "Mixte" : cx.Category,
+						Met = cx.MetApprox,
+						HintKg = hintKg,
+						TemplateLine = line
+					};
+
+					var setCount = prefsList?.Count > 0 ? prefsList.Count : line.TargetSets;
+					for (var i = 0; i < setCount; i++)
+					{
+						var repsTxt = prefsList is not null && i < prefsList.Count
+							? prefsList[i].reps.ToString(CultureInfo.InvariantCulture)
+							: (line.TargetReps?.ToString(CultureInfo.InvariantCulture) ?? "10");
+
+						double? kgHint = null;
+						if (prefsList is not null && i < prefsList.Count && prefsList[i].weight > double.Epsilon)
+							kgHint = prefsList[i].weight;
+						else if (hintKg > double.Epsilon)
+							kgHint = hintKg;
+
+						AddSetRow(blk, repsTxt, "", kgHint);
+					}
+
+					_blocks.Add(blk);
+				}
+
+				if (_blocks.Count > 0)
+					DisplayExercise(0);
+				else
+				{
+					ExerciseProgressBar.Progress = 0;
+					ExerciseCounterLabel.Text = "0 / 0";
+					ExerciseTitleLabel.Text = "";
+					ExerciseCategoryLabel.Text = "";
+				}
+
+				_sessionUiReady = _blocks.Count > 0;
+			}).ConfigureAwait(true);
+
+			if (_blocks.Count == 0)
+				await DisplayAlertAsync("Séance", "Ajoute au moins un exercice depuis l’éditeur.", "OK")
+					.ConfigureAwait(true);
+		}
+		catch (Exception ex)
+		{
+			await _dev.TryShowSafeAsync(ex, nameof(RefreshAsync)).ConfigureAwait(false);
+		}
+	}
+
+	private void DisplayExercise(int index)
+	{
+		if (_blocks.Count == 0)
+			return;
+
+		index = Math.Clamp(index, 0, _blocks.Count - 1);
+		_currentExerciseIndex = index;
+
+		var blk = _blocks[index];
+		ExerciseTitleLabel.Text = blk.Title;
+		ExerciseCategoryLabel.Text = blk.Category.ToUpperInvariant();
+		ExerciseCounterLabel.Text = $"Exercice {index + 1} sur {_blocks.Count}";
+		ExerciseProgressBar.Progress = (index + 1d) / _blocks.Count;
+
+		PrevExerciseBtn.IsEnabled = index > 0;
+		NextExerciseBtn.IsEnabled = index < _blocks.Count - 1;
+
+		ActiveExerciseRoot.Children.Clear();
+		ActiveExerciseRoot.Children.Add(BuildSetsHeader());
+		ActiveExerciseRoot.Children.Add(blk.RowsWrapper);
+	}
+
+	private static HorizontalStackLayout BuildSetsHeader()
+	{
+		static Label H(string text, double wReq = -1)
+		{
+			var l = new Label
+			{
+				Text = text,
+				FontAttributes = FontAttributes.Bold,
+				FontSize = 12,
+				TextColor = RhythmColors.TextSecondary,
+				VerticalOptions = LayoutOptions.Center
+			};
+			if (wReq > 0)
+				l.WidthRequest = wReq;
+			return l;
+		}
+
+		return new HorizontalStackLayout
+		{
+			Spacing = 12,
+			Padding = new Thickness(0, 0, 0, 6),
+			Children =
+			{
+				H("#", 28),
+				H("Kg · note", 168),
+				H("Reps", 72),
+				H("✓", 36)
+			}
+		};
+	}
+
+	private static void AddSetRow(ExerciseUi blk, string reps, string kgEntryText, double? lastSessionKgHint)
+	{
+		var idx = blk.RowEntries.Count + 1;
+		var idxLbl = new Label
+		{
+			Text = idx.ToString(CultureInfo.InvariantCulture),
+			WidthRequest = 28,
+			HorizontalTextAlignment = TextAlignment.Center,
+			VerticalOptions = LayoutOptions.Center,
+			TextColor = RhythmColors.TextSecondary,
+			FontAttributes = FontAttributes.Bold
+		};
+
+		var kgEntry = new Entry
+		{
+			Placeholder = "kg",
+			Keyboard = Keyboard.Numeric,
+			Text = kgEntryText,
+			WidthRequest = 88,
+			HorizontalOptions = LayoutOptions.Start
+		};
+		var kgHintLabel = new Label
+		{
+			VerticalOptions = LayoutOptions.Center,
+			FontSize = 12,
+			TextColor = RhythmColors.TextSecondary,
+			MinimumWidthRequest = 52,
+			LineBreakMode = LineBreakMode.NoWrap
+		};
+		if (lastSessionKgHint is > double.Epsilon)
+			kgHintLabel.Text =
+				lastSessionKgHint.Value.ToString("0.#", CultureInfo.InvariantCulture) + " kg";
+
+		var kgRegion = new HorizontalStackLayout
+		{
+			Spacing = 8,
+			VerticalOptions = LayoutOptions.Center,
+			MinimumWidthRequest = 168,
+			Children = { kgEntry, kgHintLabel }
+		};
+
+		var repsEntry = new Entry
+		{
+			Placeholder = "reps",
+			Keyboard = Keyboard.Numeric,
+			Text = reps,
+			WidthRequest = 72
+		};
+
+		var doneCb = new CheckBox { VerticalOptions = LayoutOptions.Center };
+
+		var row = new HorizontalStackLayout
+		{
+			Spacing = 12,
+			VerticalOptions = LayoutOptions.Center,
+			Children = { idxLbl, kgRegion, repsEntry, doneCb }
+		};
+
+		blk.RowsWrapper.Children.Add(row);
+		blk.RowEntries.Add((repsEntry, kgEntry));
+		blk.RowKgHints.Add(lastSessionKgHint);
+	}
+
+	private void OnAddSetClicked(object? sender, EventArgs e)
+	{
+		if (_blocks.Count == 0)
+			return;
+
+		var blk = _blocks[_currentExerciseIndex];
+		var lastRep = blk.TemplateLine.TargetReps?.ToString(CultureInfo.InvariantCulture) ?? "10";
+		if (blk.RowEntries.Count > 0)
+		{
+			var lastPair = blk.RowEntries[^1];
+			lastRep = string.IsNullOrWhiteSpace(lastPair.Reps.Text)
+				? lastRep
+				: lastPair.Reps.Text!;
+		}
+
+		double? nextHint = blk.HintKg > double.Epsilon ? blk.HintKg : null;
+		if (blk.RowKgHints.Count > 0)
+		{
+			var lh = blk.RowKgHints[^1];
+			if (lh is > double.Epsilon)
+				nextHint = lh;
+		}
+
+		AddSetRow(blk, lastRep, "", nextHint);
+	}
+
+	private void OnPrevExerciseClicked(object? sender, EventArgs e)
+	{
+		if (_blocks.Count == 0)
+			return;
+		DisplayExercise(_currentExerciseIndex - 1);
+	}
+
+	private void OnNextExerciseClicked(object? sender, EventArgs e)
+	{
+		if (_blocks.Count == 0)
+			return;
+		DisplayExercise(_currentExerciseIndex + 1);
+	}
+
+	private async void OnFinalizeClicked(object? sender, EventArgs e)
+	{
+		if (_tpl is null || _profile is null)
+			return;
+
+		FinalizeBtn.IsEnabled = false;
+		try
+		{
+			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
+			var activeProfileId =
+				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+			await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
+
+			var utc = DateTime.UtcNow;
+			var performanceLocalDate =
+				DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local));
+
+			var dtoList = new List<CompletedExerciseSetsDto>();
+			var chunkList = new List<(double Met, int SetCount)>();
+			var totalFilledSets = 0;
+
+			foreach (var blk in _blocks)
+			{
+				var parsedSets = new List<SetDto>();
+				for (var setIdx = 0; setIdx < blk.RowEntries.Count; setIdx++)
+				{
+					var (repE, kgE) = blk.RowEntries[setIdx];
+					var repOk =
+						int.TryParse(repE.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r);
+					var wOk =
+						double.TryParse(kgE.Text?.Replace(',', '.'), NumberStyles.Float,
+							CultureInfo.InvariantCulture,
+							out var w);
+					if (!repOk || !wOk || r <= 0 || w <= 0)
+						continue;
+
+					parsedSets.Add(new SetDto(r, w, setIdx + 1));
+				}
+
+				if (parsedSets.Count == 0)
+					continue;
+
+				totalFilledSets += parsedSets.Count;
+
+				dtoList.Add(new CompletedExerciseSetsDto(blk.ExerciseId, parsedSets));
+				chunkList.Add((blk.Met, parsedSets.Count));
+
+				var sessionMaxKg = parsedSets.Max(s => s.WeightKg);
+				await repo.UpsertDailyMaxKgAsync(
+					activeProfileId,
+					blk.ExerciseId,
+					performanceLocalDate,
+					sessionMaxKg).ConfigureAwait(false);
+
+				var lastRecorded = parsedSets.Last().WeightKg;
+				await repo.UpsertLastWeightAsync(new ExerciseLastWeightRow
+				{
+					ProfileId = activeProfileId,
+					ExerciseId = blk.ExerciseId,
+					WeightKg = lastRecorded,
+					UpdatedUtc = DateTime.UtcNow
+				}).ConfigureAwait(false);
+			}
+
+			if (!dtoList.Any())
+			{
+				await DisplayAlertAsync("Validation", "Aucune série complète trouvée (reps et kg positifs).", "OK")
+					.ConfigureAwait(true);
+				FinalizeBtn.IsEnabled = true;
+				return;
+			}
+
+			var calories = CaloriesEstimator.EstimateSessionKcal(
+				new CaloriesSubject
+				{
+					WeightKg = _profile!.WeightKg,
+					IsFemale = _profile.BiologicalSex == BiologicalSex.Female,
+					AgeYears = _profile.AgeYears,
+					HeightCm = _profile.HeightCm
+				},
+				chunkList);
+			var minutes = Math.Round(totalFilledSets * CaloriesEstimator.MinutesPerStrengthSet, 0);
+			var remote = new WorkoutCompletedRequest(utc, calories, minutes, null, dtoList);
+			var workoutId = Guid.NewGuid();
+			var savedWorkoutId = await repo.AddCompletedWorkoutAsync(new CompletedWorkoutRow
+			{
+				Id = workoutId,
+				ProfileId = activeProfileId,
+				CompletedUtc = utc,
+				CaloriesRounded = calories,
+				SessionTitle = _tpl.Title,
+				SourceSessionTemplateId = _sid,
+				PayloadJson = CompletedWorkoutSnapshot.SerializeRequest(remote)
+			}).ConfigureAwait(false);
+
+			try
+			{
+				var prService = ServiceHelper.Services.GetRequiredService<PersonalRecordService>();
+				await prService.ProcessCompletedWorkoutAsync(
+					repo,
+					activeProfileId,
+					savedWorkoutId,
+					utc,
+					dtoList,
+					totalFilledSets).ConfigureAwait(false);
+			}
+			catch (Exception prEx) when (prEx is not OperationCanceledException)
+			{
+				// La séance est déjà en base ; les PR sont secondaires.
+				await _dev.TryShowSafeAsync(prEx, nameof(OnFinalizeClicked) + ".Pr").ConfigureAwait(false);
+			}
+
+			ServiceHelper.Services.GetRequiredService<SocialHubService>().InvalidateCache();
+
+			var json = JsonSerializer.Serialize(new LastRunEnvelope(dtoList), JsonSnake);
+			await repo.UpsertSessionSnapshotAsync(new SessionLastSnapshotRow
+			{
+				SessionId = _sid,
+				Json = json,
+				SavedUtc = utc
+			}).ConfigureAwait(false);
+
+			_sessionUiReady = false;
+			var kcalRounded = Math.Round(calories);
+
+			await MainThread.InvokeOnMainThreadAsync(async () =>
+			{
+				await RhythmSuccessDialog.ShowAsync(
+					this,
+					$"Séance enregistrée · {kcalRounded} kcal (indicatif).")
+					.ConfigureAwait(true);
+				await UiShellNavigate.GoAsync("..").ConfigureAwait(true);
+			}).ConfigureAwait(true);
+		}
+		catch (Exception ex)
+		{
+			await MainThread.InvokeOnMainThreadAsync(async () =>
+			{
+				FinalizeBtn.IsEnabled = true;
+				await _dev.TryShowSafeAsync(ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
+			}).ConfigureAwait(true);
+		}
+	}
+
+	private static string FormatKg(double w) =>
+		w.ToString("0.#", CultureInfo.InvariantCulture) + " kg";
+}
