@@ -44,6 +44,7 @@ public partial class App : Application
 
 			await UiNavigation.ShowAppShellAsync().ConfigureAwait(false);
 			UiNavigation.RunBootstrapInBackground();
+			await WorkoutDraftRecovery.TryPromptIfNeededAsync().ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{

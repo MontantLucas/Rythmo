@@ -78,6 +78,7 @@ public partial class SessionEditPage : ContentPage
 
 	private async Task CloseAddExerciseSheetAsync()
 	{
+		AddSheetCategorySelector.CloseDropdown();
 		await AddSheetPanel.TranslateToAsync(0, 80, 140, Easing.CubicIn);
 		await AddSheetPanel.FadeToAsync(0, 100, Easing.CubicIn);
 		AddSheetOverlay.IsVisible = false;
@@ -448,6 +449,7 @@ public partial class SessionEditPage : ContentPage
 		var showList = n > 0;
 		EmptySessionHint.IsVisible = !showList;
 		OrderedHost.IsVisible = showList;
+		ExerciseListScroll.IsVisible = showList;
 
 		foreach (var line in _orderedLines.ToList())
 		{
@@ -552,101 +554,38 @@ public partial class SessionEditPage : ContentPage
 			mid.VerticalOptions = LayoutOptions.Center;
 
 			var lineIdCaptured = line.LineId;
-			Border? reorderDragBorder = null;
-			var reorderStartIx = _orderedLines.FindIndex(l => l.LineId == line.LineId);
+			var lineIndex = _orderedLines.FindIndex(l => l.LineId == line.LineId);
+			var canMoveUp = lineIndex > 0;
+			var canMoveDown = lineIndex >= 0 && lineIndex < _orderedLines.Count - 1;
 
-			var handle = new Label
+			var reorderRail = new VerticalStackLayout
 			{
-				Text = "⋮",
-				Opacity = .45,
-				FontSize = 20,
-				TextColor = RhythmColors.TextSecondary,
-				HorizontalTextAlignment = TextAlignment.Center,
-				Padding = new Thickness(10, 8),
-				HorizontalOptions = LayoutOptions.Center
+				Spacing = 4,
+				WidthRequest = 44,
+				VerticalOptions = LayoutOptions.Center
 			};
-			SemanticProperties.SetHint(handle, "Glisser pour réordonner");
-
-			const double reorderRowApprox = 96d;
-			double panAccumulator = 0;
-			var reorderPan = new PanGestureRecognizer();
-			reorderPan.PanUpdated += (_, e) =>
-			{
-				switch (e.StatusType)
-				{
-					case GestureStatus.Started:
-						panAccumulator = 0;
-						var idxGrab = _orderedLines.FindIndex(l => l.LineId == lineIdCaptured);
-						reorderStartIx = idxGrab;
-						if (idxGrab < 0 || reorderDragBorder is null)
-							break;
-						reorderDragBorder.Scale = .98;
-						reorderDragBorder.Opacity = .94;
-						reorderDragBorder.ZIndex = 12;
-						if (reorderDragBorder.Shadow is { } sd)
-							sd.Radius = 14;
-
-						break;
-					case GestureStatus.Running:
-						panAccumulator = e.TotalY;
-						if (reorderDragBorder is null)
-							break;
-						var nLines = Math.Max(_orderedLines.Count, 1);
-						var ix0 =
-							Math.Clamp(reorderStartIx,
-								0,
-								Math.Max(0, _orderedLines.Count - 1));
-						var spanUp = Math.Max(ix0 * reorderRowApprox, 0);
-						var spanDown = Math.Max((nLines - 1 - ix0) * reorderRowApprox, 0);
-						var capped = Math.Clamp(e.TotalY, -spanUp, spanDown);
-						reorderDragBorder.TranslationY = capped;
-
-						break;
-					case GestureStatus.Completed:
-					case GestureStatus.Canceled:
-						if (reorderDragBorder is null)
-							return;
-
-						reorderDragBorder.TranslationY = 0;
-						reorderDragBorder.Scale = 1;
-						reorderDragBorder.Opacity = 1;
-						reorderDragBorder.ZIndex = 0;
-						if (reorderDragBorder.Shadow is { } sd2)
-							sd2.Radius = 8;
-
-						var ix = reorderStartIx;
-						var count = _orderedLines.Count;
-						var totalDy = panAccumulator;
-						panAccumulator = 0;
-						if (count < 2 || ix < 0 || ix >= count)
-							return;
-
-						var deltaSlots =
-							Math.Clamp((int)Math.Round(totalDy / reorderRowApprox, MidpointRounding.AwayFromZero),
-								-ix,
-								count - 1 - ix);
-
-						if (deltaSlots != 0)
-						{
-							ReorderLineDelta(lineIdCaptured, deltaSlots);
-							CaptureTargetsFromBindings();
-							RenderExerciseList();
-						}
-
-						break;
-				}
-			};
-			handle.GestureRecognizers.Add(reorderPan);
+			reorderRail.Children.Add(CreateReorderArrowButton(
+				SessionMuscleGlyph.ArrowUp,
+				canMoveUp,
+				"Monter",
+				() => MoveExercise(lineIdCaptured, -1)));
+			reorderRail.Children.Add(CreateReorderArrowButton(
+				SessionMuscleGlyph.ArrowDown,
+				canMoveDown,
+				"Descendre",
+				() => MoveExercise(lineIdCaptured, 1)));
 
 			var menuDots = new Label
 			{
 				Text = "⋯",
-				FontSize = 20,
+				FontSize = 22,
 				HorizontalTextAlignment = TextAlignment.Center,
 				TextColor = RhythmColors.TextSecondary,
 				LineHeight = 1,
-				Padding = new Thickness(2, 0),
-				HorizontalOptions = LayoutOptions.Center
+				Padding = new Thickness(10, 12),
+				HorizontalOptions = LayoutOptions.Center,
+				MinimumWidthRequest = 44,
+				MinimumHeightRequest = 44
 			};
 			menuDots.GestureRecognizers.Add(new TapGestureRecognizer
 			{
@@ -657,36 +596,31 @@ public partial class SessionEditPage : ContentPage
 				})
 			});
 
-			var rail = new VerticalStackLayout { Spacing = 10 };
-			rail.Children.Add(handle);
-			rail.Children.Add(menuDots);
-			rail.HorizontalOptions = LayoutOptions.End;
-			rail.VerticalOptions = LayoutOptions.Center;
-
 			var iconSize = 44d;
 			var row = new Grid
 			{
 				ColumnDefinitions =
 				[
 					new ColumnDefinition(GridLength.Auto),
+					new ColumnDefinition(GridLength.Auto),
 					new ColumnDefinition(GridLength.Star),
 					new ColumnDefinition(GridLength.Auto),
 				],
-				ColumnSpacing = 12,
-				Padding = new Thickness(12, 8),
+				ColumnSpacing = 10,
+				Padding = new Thickness(8, 8, 10, 8),
 				VerticalOptions = LayoutOptions.Fill
 			};
-			row.Add(MuscleIconCircle(SessionMuscleGlyph.FromCategory(ex.Category), iconSize), 0, 0);
-			row.Add(mid, 1, 0);
-			row.Add(rail, 2, 0);
+			row.Add(reorderRail, 0, 0);
+			row.Add(MuscleIconCircle(SessionMuscleGlyph.FromCategory(ex.Category), iconSize), 1, 0);
+			row.Add(mid, 2, 0);
+			row.Add(menuDots, 3, 0);
 
 			var card = new Border
 			{
 				StrokeThickness = 0,
 				BackgroundColor = RhythmColors.Surface1,
 				HorizontalOptions = LayoutOptions.Fill,
-				MinimumHeightRequest = 72,
-				MaximumHeightRequest = 86,
+				MinimumHeightRequest = 80,
 				Content = row
 			};
 			card.StrokeShape = new RoundRectangle { CornerRadius = 18 };
@@ -697,12 +631,60 @@ public partial class SessionEditPage : ContentPage
 				Offset = new Point(0, 5)
 			};
 
-			reorderDragBorder = card;
-
 			SemanticProperties.SetDescription(card, $"{CardAutomationHint}:{ex.NameFr}");
 
 			OrderedHost.Children.Add(card);
 		}
+	}
+
+	private static Border CreateReorderArrowButton(string glyph, bool enabled, string hint, Action onTap)
+	{
+		var icon = new Label
+		{
+			Text = glyph,
+			FontFamily = SessionMuscleGlyph.FontAlias,
+			FontSize = 22,
+			HorizontalTextAlignment = TextAlignment.Center,
+			VerticalTextAlignment = TextAlignment.Center,
+			TextColor = enabled
+				? RhythmColors.Accent
+				: RhythmColors.TextSecondary.WithAlpha(0.35f)
+		};
+
+		var btn = new Border
+		{
+			WidthRequest = 40,
+			HeightRequest = 34,
+			BackgroundColor = RhythmColors.Surface2,
+			Stroke = enabled
+				? RhythmColors.Accent.WithAlpha(0.22f)
+				: Colors.Transparent,
+			StrokeThickness = enabled ? 1 : 0,
+			Padding = 0,
+			Content = icon
+		};
+		btn.StrokeShape = new RoundRectangle { CornerRadius = 12 };
+		SemanticProperties.SetHint(btn, hint);
+
+		if (enabled)
+		{
+			btn.GestureRecognizers.Add(new TapGestureRecognizer
+			{
+				Command = new Command(onTap)
+			});
+		}
+
+		return btn;
+	}
+
+	private void MoveExercise(Guid lineId, int delta)
+	{
+		if (delta == 0)
+			return;
+
+		ReorderLineDelta(lineId, delta);
+		CaptureTargetsFromBindings();
+		RenderExerciseList();
 	}
 
 	private void ReorderLineDelta(Guid lineId, int deltaSlots)

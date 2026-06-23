@@ -146,5 +146,6 @@ public partial class LoginPage : ContentPage
 	{
 		await UiNavigation.ShowAppShellAsync().ConfigureAwait(true);
 		UiNavigation.RunBootstrapInBackground();
+		await WorkoutDraftRecovery.TryPromptIfNeededAsync().ConfigureAwait(true);
 	}
 }

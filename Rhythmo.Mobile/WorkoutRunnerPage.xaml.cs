@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.ApplicationModel;
+using Rhythmo.Mobile.Diagnostics;
 using Rhythmo.Mobile.Data;
 using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Services;
@@ -31,6 +32,11 @@ public partial class WorkoutRunnerPage : ContentPage
 	private bool _sessionUiReady;
 
 	private int _currentExerciseIndex;
+	private DateTime _draftStartedUtc;
+	private CancellationTokenSource? _draftSaveCts;
+
+	private readonly WorkoutDraftStore _draftStore =
+		ServiceHelper.Services.GetRequiredService<WorkoutDraftStore>();
 
 	private readonly IDevErrorPresenter _dev =
 		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
@@ -57,6 +63,9 @@ public partial class WorkoutRunnerPage : ContentPage
 		if (!abandon)
 			return;
 
+		var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+		_draftStore.Clear(activeProfileId);
+
 		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
 	}
 
@@ -74,8 +83,19 @@ public partial class WorkoutRunnerPage : ContentPage
 
 		public List<(Entry Reps, Entry Kg)> RowEntries { get; } = [];
 
+		public List<CheckBox> RowDoneBoxes { get; } = [];
+
 		public List<double?> RowKgHints { get; } = [];
 	}
+
+	private sealed record PreparedWorkout(
+		DateTime Utc,
+		DateOnly PerformanceLocalDate,
+		IReadOnlyList<CompletedExerciseSetsDto> Exercises,
+		IReadOnlyList<(Guid ExerciseId, double MaxKg, double LastKg)> ExerciseStats,
+		int TotalFilledSets,
+		double Calories,
+		double Minutes);
 
 	protected override async void OnAppearing()
 	{
@@ -112,9 +132,14 @@ public partial class WorkoutRunnerPage : ContentPage
 				$"{_tpl.Title} · {_profile.DisplayName} · {(_profile.BiologicalSex == BiologicalSex.Male ? "homme" : "femme")} · {FormatKg(_profile.WeightKg)}";
 
 			SessionLastSnapshotRow? snapRow = await repo.GetSessionSnapshotAsync(_sid).ConfigureAwait(true);
+			var localDraft = _draftStore.TryLoad(activeProfileId);
+			var useDraft = localDraft is not null && localDraft.SessionId == _sid;
+			Dictionary<Guid, WorkoutDraftExerciseDto>? draftByExercise = useDraft
+				? localDraft!.Exercises.ToDictionary(e => e.ExerciseId)
+				: null;
 
 			Dictionary<Guid, List<(int reps, double weight)>>? prefs = null;
-			if (!string.IsNullOrWhiteSpace(snapRow?.Json))
+			if (!useDraft && !string.IsNullOrWhiteSpace(snapRow?.Json))
 			{
 				var env = JsonSerializer.Deserialize<LastRunEnvelope>(snapRow.Json, JsonSnake);
 				if (env?.Exercises is { Count: > 0 })
@@ -153,9 +178,11 @@ public partial class WorkoutRunnerPage : ContentPage
 
 					hints.TryGetValue(cx.Id, out var hintKg);
 
-					var prefsList = prefs is not null && prefs.TryGetValue(cx.Id, out var pl)
+					var prefsList = !useDraft && prefs is not null && prefs.TryGetValue(cx.Id, out var pl)
 						? pl
 						: null;
+
+					var draftEx = useDraft && draftByExercise!.TryGetValue(cx.Id, out var dex) ? dex : null;
 
 					var blk = new ExerciseUi
 					{
@@ -167,27 +194,50 @@ public partial class WorkoutRunnerPage : ContentPage
 						TemplateLine = line
 					};
 
-					var setCount = prefsList?.Count > 0 ? prefsList.Count : line.TargetSets;
-					for (var i = 0; i < setCount; i++)
+					if (draftEx is { Sets.Count: > 0 })
 					{
-						var repsTxt = prefsList is not null && i < prefsList.Count
-							? prefsList[i].reps.ToString(CultureInfo.InvariantCulture)
-							: (line.TargetReps?.ToString(CultureInfo.InvariantCulture) ?? "10");
+						for (var i = 0; i < draftEx.Sets.Count; i++)
+						{
+							var ds = draftEx.Sets[i];
+							AddSetRow(blk, ds.RepsText, ds.KgText, null, ds.IsDone);
+						}
+					}
+					else
+					{
+						var setCount = prefsList?.Count > 0 ? prefsList.Count : line.TargetSets;
+						for (var i = 0; i < setCount; i++)
+						{
+							var repsTxt = prefsList is not null && i < prefsList.Count
+								? prefsList[i].reps.ToString(CultureInfo.InvariantCulture)
+								: (line.TargetReps?.ToString(CultureInfo.InvariantCulture) ?? "10");
 
-						double? kgHint = null;
-						if (prefsList is not null && i < prefsList.Count && prefsList[i].weight > double.Epsilon)
-							kgHint = prefsList[i].weight;
-						else if (hintKg > double.Epsilon)
-							kgHint = hintKg;
+							double? kgHint = null;
+							if (prefsList is not null && i < prefsList.Count && prefsList[i].weight > double.Epsilon)
+								kgHint = prefsList[i].weight;
+							else if (hintKg > double.Epsilon)
+								kgHint = hintKg;
 
-						AddSetRow(blk, repsTxt, "", kgHint);
+							var kgTxt = prefsList is not null && i < prefsList.Count && prefsList[i].weight > double.Epsilon
+								? prefsList[i].weight.ToString("0.#", CultureInfo.InvariantCulture)
+								: "";
+
+							AddSetRow(blk, repsTxt, kgTxt, kgHint);
+						}
 					}
 
 					_blocks.Add(blk);
 				}
 
 				if (_blocks.Count > 0)
-					DisplayExercise(0);
+				{
+					_draftStartedUtc = useDraft ? localDraft!.StartedUtc : DateTime.UtcNow;
+					var exerciseIndex = useDraft
+						? Math.Clamp(localDraft!.CurrentExerciseIndex, 0, _blocks.Count - 1)
+						: 0;
+					DisplayExercise(exerciseIndex);
+					if (!useDraft)
+						PersistDraftNow(activeProfileId);
+				}
 				else
 				{
 					ExerciseProgressBar.Progress = 0;
@@ -229,6 +279,7 @@ public partial class WorkoutRunnerPage : ContentPage
 		ActiveExerciseRoot.Children.Clear();
 		ActiveExerciseRoot.Children.Add(BuildSetsHeader());
 		ActiveExerciseRoot.Children.Add(blk.RowsWrapper);
+		ScheduleDraftSave();
 	}
 
 	private static HorizontalStackLayout BuildSetsHeader()
@@ -262,7 +313,12 @@ public partial class WorkoutRunnerPage : ContentPage
 		};
 	}
 
-	private static void AddSetRow(ExerciseUi blk, string reps, string kgEntryText, double? lastSessionKgHint)
+	private void AddSetRow(
+		ExerciseUi blk,
+		string reps,
+		string kgEntryText,
+		double? lastSessionKgHint,
+		bool isDone = false)
 	{
 		var idx = blk.RowEntries.Count + 1;
 		var idxLbl = new Label
@@ -311,7 +367,11 @@ public partial class WorkoutRunnerPage : ContentPage
 			WidthRequest = 72
 		};
 
-		var doneCb = new CheckBox { VerticalOptions = LayoutOptions.Center };
+		var doneCb = new CheckBox { VerticalOptions = LayoutOptions.Center, IsChecked = isDone };
+		doneCb.CheckedChanged += (_, _) => ScheduleDraftSave();
+
+		repsEntry.TextChanged += (_, _) => ScheduleDraftSave();
+		kgEntry.TextChanged += (_, _) => ScheduleDraftSave();
 
 		var row = new HorizontalStackLayout
 		{
@@ -322,6 +382,7 @@ public partial class WorkoutRunnerPage : ContentPage
 
 		blk.RowsWrapper.Children.Add(row);
 		blk.RowEntries.Add((repsEntry, kgEntry));
+		blk.RowDoneBoxes.Add(doneCb);
 		blk.RowKgHints.Add(lastSessionKgHint);
 	}
 
@@ -349,6 +410,8 @@ public partial class WorkoutRunnerPage : ContentPage
 		}
 
 		AddSetRow(blk, lastRep, "", nextHint);
+		var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+		PersistDraftNow(profileId);
 	}
 
 	private void OnPrevExerciseClicked(object? sender, EventArgs e)
@@ -377,60 +440,8 @@ public partial class WorkoutRunnerPage : ContentPage
 			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 			var activeProfileId =
 				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-			await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
-
-			var utc = DateTime.UtcNow;
-			var performanceLocalDate =
-				DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local));
-
-			var dtoList = new List<CompletedExerciseSetsDto>();
-			var chunkList = new List<(double Met, int SetCount)>();
-			var totalFilledSets = 0;
-
-			foreach (var blk in _blocks)
-			{
-				var parsedSets = new List<SetDto>();
-				for (var setIdx = 0; setIdx < blk.RowEntries.Count; setIdx++)
-				{
-					var (repE, kgE) = blk.RowEntries[setIdx];
-					var repOk =
-						int.TryParse(repE.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r);
-					var wOk =
-						double.TryParse(kgE.Text?.Replace(',', '.'), NumberStyles.Float,
-							CultureInfo.InvariantCulture,
-							out var w);
-					if (!repOk || !wOk || r <= 0 || w <= 0)
-						continue;
-
-					parsedSets.Add(new SetDto(r, w, setIdx + 1));
-				}
-
-				if (parsedSets.Count == 0)
-					continue;
-
-				totalFilledSets += parsedSets.Count;
-
-				dtoList.Add(new CompletedExerciseSetsDto(blk.ExerciseId, parsedSets));
-				chunkList.Add((blk.Met, parsedSets.Count));
-
-				var sessionMaxKg = parsedSets.Max(s => s.WeightKg);
-				await repo.UpsertDailyMaxKgAsync(
-					activeProfileId,
-					blk.ExerciseId,
-					performanceLocalDate,
-					sessionMaxKg).ConfigureAwait(false);
-
-				var lastRecorded = parsedSets.Last().WeightKg;
-				await repo.UpsertLastWeightAsync(new ExerciseLastWeightRow
-				{
-					ProfileId = activeProfileId,
-					ExerciseId = blk.ExerciseId,
-					WeightKg = lastRecorded,
-					UpdatedUtc = DateTime.UtcNow
-				}).ConfigureAwait(false);
-			}
-
-			if (!dtoList.Any())
+			var prepared = BuildPreparedWorkout();
+			if (prepared is null)
 			{
 				await DisplayAlertAsync("Validation", "Aucune série complète trouvée (reps et kg positifs).", "OK")
 					.ConfigureAwait(true);
@@ -438,58 +449,16 @@ public partial class WorkoutRunnerPage : ContentPage
 				return;
 			}
 
-			var calories = CaloriesEstimator.EstimateSessionKcal(
-				new CaloriesSubject
-				{
-					WeightKg = _profile!.WeightKg,
-					IsFemale = _profile.BiologicalSex == BiologicalSex.Female,
-					AgeYears = _profile.AgeYears,
-					HeightCm = _profile.HeightCm
-				},
-				chunkList);
-			var minutes = Math.Round(totalFilledSets * CaloriesEstimator.MinutesPerStrengthSet, 0);
-			var remote = new WorkoutCompletedRequest(utc, calories, minutes, null, dtoList);
-			var workoutId = Guid.NewGuid();
-			var savedWorkoutId = await repo.AddCompletedWorkoutAsync(new CompletedWorkoutRow
+			if (!await EnsureSessionForSaveAsync(auth).ConfigureAwait(true))
 			{
-				Id = workoutId,
-				ProfileId = activeProfileId,
-				CompletedUtc = utc,
-				CaloriesRounded = calories,
-				SessionTitle = _tpl.Title,
-				SourceSessionTemplateId = _sid,
-				PayloadJson = CompletedWorkoutSnapshot.SerializeRequest(remote)
-			}).ConfigureAwait(false);
-
-			try
-			{
-				var prService = ServiceHelper.Services.GetRequiredService<PersonalRecordService>();
-				await prService.ProcessCompletedWorkoutAsync(
-					repo,
-					activeProfileId,
-					savedWorkoutId,
-					utc,
-					dtoList,
-					totalFilledSets).ConfigureAwait(false);
-			}
-			catch (Exception prEx) when (prEx is not OperationCanceledException)
-			{
-				// La séance est déjà en base ; les PR sont secondaires.
-				await _dev.TryShowSafeAsync(prEx, nameof(OnFinalizeClicked) + ".Pr").ConfigureAwait(false);
+				FinalizeBtn.IsEnabled = true;
+				return;
 			}
 
-			ServiceHelper.Services.GetRequiredService<SocialHubService>().InvalidateCache();
-
-			var json = JsonSerializer.Serialize(new LastRunEnvelope(dtoList), JsonSnake);
-			await repo.UpsertSessionSnapshotAsync(new SessionLastSnapshotRow
-			{
-				SessionId = _sid,
-				Json = json,
-				SavedUtc = utc
-			}).ConfigureAwait(false);
+			await SavePreparedWorkoutAsync(repo, activeProfileId, prepared).ConfigureAwait(false);
 
 			_sessionUiReady = false;
-			var kcalRounded = Math.Round(calories);
+			var kcalRounded = Math.Round(prepared.Calories);
 
 			await MainThread.InvokeOnMainThreadAsync(async () =>
 			{
@@ -500,6 +469,18 @@ public partial class WorkoutRunnerPage : ContentPage
 				await UiShellNavigate.GoAsync("..").ConfigureAwait(true);
 			}).ConfigureAwait(true);
 		}
+		catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
+		{
+			await MainThread.InvokeOnMainThreadAsync(async () =>
+			{
+				FinalizeBtn.IsEnabled = true;
+				await RhythmAlertDialog.ShowAsync(
+					this,
+					"Session expirée",
+					"La séance n'a pas été enregistrée. Reconnecte-toi puis réessaie : tes charges sont toujours affichées à l'écran.",
+					isError: true).ConfigureAwait(true);
+			}).ConfigureAwait(true);
+		}
 		catch (Exception ex)
 		{
 			await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -508,6 +489,258 @@ public partial class WorkoutRunnerPage : ContentPage
 				await _dev.TryShowSafeAsync(ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
 			}).ConfigureAwait(true);
 		}
+	}
+
+	private PreparedWorkout? BuildPreparedWorkout()
+	{
+		var utc = DateTime.UtcNow;
+		var performanceLocalDate =
+			DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local));
+
+		var dtoList = new List<CompletedExerciseSetsDto>();
+		var chunkList = new List<(double Met, int SetCount)>();
+		var exerciseStats = new List<(Guid ExerciseId, double MaxKg, double LastKg)>();
+		var totalFilledSets = 0;
+
+		foreach (var blk in _blocks)
+		{
+			var parsedSets = new List<SetDto>();
+			for (var setIdx = 0; setIdx < blk.RowEntries.Count; setIdx++)
+			{
+				var (repE, kgE) = blk.RowEntries[setIdx];
+				var repOk =
+					int.TryParse(repE.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r);
+				var wOk =
+					double.TryParse(kgE.Text?.Replace(',', '.'), NumberStyles.Float,
+						CultureInfo.InvariantCulture,
+						out var w);
+				if (!repOk || !wOk || r <= 0 || w <= 0)
+					continue;
+
+				parsedSets.Add(new SetDto(r, w, setIdx + 1));
+			}
+
+			if (parsedSets.Count == 0)
+				continue;
+
+			totalFilledSets += parsedSets.Count;
+			dtoList.Add(new CompletedExerciseSetsDto(blk.ExerciseId, parsedSets));
+			chunkList.Add((blk.Met, parsedSets.Count));
+			exerciseStats.Add((blk.ExerciseId, parsedSets.Max(s => s.WeightKg), parsedSets.Last().WeightKg));
+		}
+
+		if (dtoList.Count == 0)
+			return null;
+
+		var calories = CaloriesEstimator.EstimateSessionKcal(
+			new CaloriesSubject
+			{
+				WeightKg = _profile!.WeightKg,
+				IsFemale = _profile.BiologicalSex == BiologicalSex.Female,
+				AgeYears = _profile.AgeYears,
+				HeightCm = _profile.HeightCm
+			},
+			chunkList);
+		var minutes = Math.Round(totalFilledSets * CaloriesEstimator.MinutesPerStrengthSet, 0);
+
+		return new PreparedWorkout(
+			utc,
+			performanceLocalDate,
+			dtoList,
+			exerciseStats,
+			totalFilledSets,
+			calories,
+			minutes);
+	}
+
+	private async Task<bool> EnsureSessionForSaveAsync(SupabaseAuthService auth)
+	{
+		try
+		{
+			await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
+			if (auth.IsSignedIn)
+				return true;
+		}
+		catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
+		{
+			CrashLogWriter.TryAppend(nameof(EnsureSessionForSaveAsync), ex);
+		}
+
+		while (true)
+		{
+			var relog = await MainThread.InvokeOnMainThreadAsync(() =>
+				RhythmReauthDialog.ShowAsync(this, auth.CurrentUserEmail)).ConfigureAwait(true);
+			if (!relog.Confirmed)
+				return false;
+
+			var (ok, err) = await auth.SignInWithPasswordAsync(relog.Email, relog.Password).ConfigureAwait(false);
+			if (!ok)
+			{
+				await MainThread.InvokeOnMainThreadAsync(async () =>
+				{
+					await RhythmAlertDialog.ShowAsync(
+						this,
+						"Connexion refusée",
+						err ?? "Impossible de se reconnecter.",
+						isError: true).ConfigureAwait(true);
+				}).ConfigureAwait(true);
+				continue;
+			}
+
+			try
+			{
+				await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
+				if (auth.IsSignedIn)
+					return true;
+			}
+			catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
+			{
+				CrashLogWriter.TryAppend(nameof(EnsureSessionForSaveAsync) + ".RefreshAfterRelog", ex);
+			}
+
+			await MainThread.InvokeOnMainThreadAsync(async () =>
+			{
+				await RhythmAlertDialog.ShowAsync(
+					this,
+					"Session indisponible",
+					"La reconnexion n'a pas suffi. Réessaie dans un instant.",
+					isError: true).ConfigureAwait(true);
+			}).ConfigureAwait(true);
+		}
+	}
+
+	private async Task SavePreparedWorkoutAsync(
+		IRhythmoRepository repo,
+		Guid activeProfileId,
+		PreparedWorkout prepared)
+	{
+		foreach (var stat in prepared.ExerciseStats)
+		{
+			await repo.UpsertDailyMaxKgAsync(
+				activeProfileId,
+				stat.ExerciseId,
+				prepared.PerformanceLocalDate,
+				stat.MaxKg).ConfigureAwait(false);
+
+			await repo.UpsertLastWeightAsync(new ExerciseLastWeightRow
+			{
+				ProfileId = activeProfileId,
+				ExerciseId = stat.ExerciseId,
+				WeightKg = stat.LastKg,
+				UpdatedUtc = DateTime.UtcNow
+			}).ConfigureAwait(false);
+		}
+
+		var remote = new WorkoutCompletedRequest(
+			prepared.Utc,
+			prepared.Calories,
+			prepared.Minutes,
+			null,
+			prepared.Exercises);
+		var workoutId = Guid.NewGuid();
+		var savedWorkoutId = await repo.AddCompletedWorkoutAsync(new CompletedWorkoutRow
+		{
+			Id = workoutId,
+			ProfileId = activeProfileId,
+			CompletedUtc = prepared.Utc,
+			CaloriesRounded = prepared.Calories,
+			SessionTitle = _tpl!.Title,
+			SourceSessionTemplateId = _sid,
+			PayloadJson = CompletedWorkoutSnapshot.SerializeRequest(remote)
+		}).ConfigureAwait(false);
+
+		try
+		{
+			var prService = ServiceHelper.Services.GetRequiredService<PersonalRecordService>();
+			await prService.ProcessCompletedWorkoutAsync(
+				repo,
+				activeProfileId,
+				savedWorkoutId,
+				prepared.Utc,
+				prepared.Exercises,
+				prepared.TotalFilledSets).ConfigureAwait(false);
+		}
+		catch (Exception prEx) when (prEx is not OperationCanceledException)
+		{
+			await _dev.TryShowSafeAsync(prEx, nameof(OnFinalizeClicked) + ".Pr").ConfigureAwait(false);
+		}
+
+		ServiceHelper.Services.GetRequiredService<SocialHubService>().InvalidateCache();
+
+		var json = JsonSerializer.Serialize(new LastRunEnvelope(prepared.Exercises), JsonSnake);
+		await repo.UpsertSessionSnapshotAsync(new SessionLastSnapshotRow
+		{
+			SessionId = _sid,
+			Json = json,
+			SavedUtc = prepared.Utc
+		}).ConfigureAwait(false);
+
+		_draftStore.Clear(activeProfileId);
+	}
+
+	void ScheduleDraftSave()
+	{
+		if (_tpl is null || !_sessionUiReady)
+			return;
+
+		_draftSaveCts?.Cancel();
+		_draftSaveCts = new CancellationTokenSource();
+		var token = _draftSaveCts.Token;
+		_ = Task.Run(async () =>
+		{
+			try
+			{
+				await Task.Delay(400, token).ConfigureAwait(false);
+				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+				PersistDraftNow(profileId);
+			}
+			catch (OperationCanceledException)
+			{
+				// Debounce normal.
+			}
+		}, token);
+	}
+
+	void PersistDraftNow(Guid profileId)
+	{
+		if (_tpl is null || !_sessionUiReady)
+			return;
+
+		try
+		{
+			_draftStore.Save(BuildDraftEnvelope(profileId));
+		}
+		catch (Exception ex)
+		{
+			CrashLogWriter.TryAppend(nameof(PersistDraftNow), ex);
+		}
+	}
+
+	WorkoutDraftEnvelope BuildDraftEnvelope(Guid profileId)
+	{
+		var exercises = _blocks.Select(blk =>
+		{
+			var sets = new List<WorkoutDraftSetDto>(blk.RowEntries.Count);
+			for (var i = 0; i < blk.RowEntries.Count; i++)
+			{
+				var (reps, kg) = blk.RowEntries[i];
+				sets.Add(new WorkoutDraftSetDto(
+					reps.Text ?? "",
+					kg.Text ?? "",
+					blk.RowDoneBoxes[i].IsChecked));
+			}
+
+			return new WorkoutDraftExerciseDto(blk.ExerciseId, sets);
+		}).ToList();
+
+		return new WorkoutDraftEnvelope(
+			profileId,
+			_sid,
+			_tpl!.Title,
+			_draftStartedUtc,
+			DateTime.UtcNow,
+			_currentExerciseIndex,
+			exercises);
 	}
 
 	private static string FormatKg(double w) =>

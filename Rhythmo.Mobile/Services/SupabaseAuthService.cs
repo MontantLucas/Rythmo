@@ -12,6 +12,9 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 
 	public bool IsSignedIn => client.Auth.CurrentSession is not null;
 
+	public string? CurrentUserEmail =>
+		client.Auth.CurrentUser?.Email ?? client.Auth.CurrentSession?.User?.Email;
+
 	public Guid? CurrentUserId =>
 		client.Auth.CurrentSession?.User?.Id is { } s && Guid.TryParse(s, out var g) ? g : null;
 
@@ -275,6 +278,28 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 			    || msg.Contains("rate limit", StringComparison.OrdinalIgnoreCase)
 			    || msg.Contains("too many requests", StringComparison.OrdinalIgnoreCase)
 			    || msg.Contains("email rate limit", StringComparison.OrdinalIgnoreCase))
+				return true;
+		}
+
+		return false;
+	}
+
+	public static bool RequiresReauthentication(Exception ex)
+	{
+		for (var current = ex; current is not null; current = current.InnerException)
+		{
+			var msg = current.Message;
+			if (string.IsNullOrWhiteSpace(msg))
+				continue;
+
+			if (msg.Contains("jwt", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("token", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("expired", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("refresh", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("session expir", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("invalid grant", StringComparison.OrdinalIgnoreCase)
+			    || msg.Contains("401", StringComparison.Ordinal)
+			    || msg.Contains("403", StringComparison.Ordinal))
 				return true;
 		}
 

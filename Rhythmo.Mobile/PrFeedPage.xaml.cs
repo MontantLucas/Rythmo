@@ -28,6 +28,7 @@ public partial class PrFeedPage : ContentPage
 	private List<FilterOption> _userOptions = [];
 	private List<FilterOption> _exerciseOptions = [];
 	private PrWindow _window = PrWindow.Day;
+	private PrKind? _kindFilter;
 	private bool _loaded;
 
 	public PrFeedPage()
@@ -76,7 +77,7 @@ public partial class PrFeedPage : ContentPage
 				_loaded = true;
 			}
 
-			RenderPeriodTabs();
+			RenderFilterChips();
 			RenderFeed();
 		}
 		catch (Exception ex)
@@ -85,17 +86,50 @@ public partial class PrFeedPage : ContentPage
 		}
 	}
 
-	private void RenderPeriodTabs()
+	private void RenderFilterChips()
 	{
-		PeriodTabsHost.Children.Clear();
-		PeriodTabsHost.Children.Add(FriendsHubUi.PeriodTab(
+		FilterChipsHost.Children.Clear();
+
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
 			"Aujourd'hui",
 			_window == PrWindow.Day,
-			() => SetWindow(PrWindow.Day)));
-		PeriodTabsHost.Children.Add(FriendsHubUi.PeriodTab(
+			() => SetWindow(PrWindow.Day),
+			compact: true));
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
 			"All-time",
 			_window == PrWindow.AllTime,
-			() => SetWindow(PrWindow.AllTime)));
+			() => SetWindow(PrWindow.AllTime),
+			compact: true));
+
+		FilterChipsHost.Children.Add(new BoxView
+		{
+			WidthRequest = 1,
+			HeightRequest = 18,
+			Color = Theme.RhythmColors.Surface2,
+			VerticalOptions = LayoutOptions.Center,
+			Margin = new Thickness(2, 0)
+		});
+
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
+			"Tous",
+			_kindFilter is null,
+			() => SetKindFilter(null),
+			compact: true));
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
+			"Poids",
+			_kindFilter == PrKind.Weight,
+			() => SetKindFilter(PrKind.Weight),
+			compact: true));
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
+			"Reps",
+			_kindFilter == PrKind.Reps,
+			() => SetKindFilter(PrKind.Reps),
+			compact: true));
+		FilterChipsHost.Children.Add(FriendsHubUi.PeriodTab(
+			"Volume",
+			_kindFilter == PrKind.Volume,
+			() => SetKindFilter(PrKind.Volume),
+			compact: true));
 	}
 
 	private void RenderFeed()
@@ -107,6 +141,9 @@ public partial class PrFeedPage : ContentPage
 			var today = DateOnly.FromDateTime(DateTime.Now);
 			filtered = filtered.Where(pr => DateOnly.FromDateTime(pr.CompletedUtc.ToLocalTime()) == today);
 		}
+
+		if (_kindFilter is { } kind)
+			filtered = filtered.Where(pr => pr.Kind == kind);
 
 		if (TryGetSelectedId(UserFilterSelector, _userOptions) is { } userId)
 			filtered = filtered.Where(pr => pr.UserId == userId);
@@ -143,7 +180,17 @@ public partial class PrFeedPage : ContentPage
 			return;
 
 		_window = window;
-		RenderPeriodTabs();
+		RenderFilterChips();
+		RenderFeed();
+	}
+
+	private void SetKindFilter(PrKind? kind)
+	{
+		if (_kindFilter == kind)
+			return;
+
+		_kindFilter = kind;
+		RenderFilterChips();
 		RenderFeed();
 	}
 

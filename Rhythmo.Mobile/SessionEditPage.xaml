@@ -51,9 +51,8 @@
                     VerticalOptions="Center" />
         </Grid>
 
-        <Grid Grid.Row="1" RowSpacing="0">
-            <ScrollView>
-                <VerticalStackLayout x:Name="MainScrollContent" Spacing="16">
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="16">
+            <VerticalStackLayout Grid.Row="0" Spacing="16">
                     <VerticalStackLayout Spacing="6">
                         <Label FontSize="12"
                                Text="Nom de la séance"
@@ -132,7 +131,12 @@
                             </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>
+            </VerticalStackLayout>
 
+            <ScrollView x:Name="ExerciseListScroll"
+                        Grid.Row="1"
+                        VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="10">
                     <VerticalStackLayout x:Name="OrderedHost" Spacing="10" />
 
                     <Border Margin="0,4,0,0"

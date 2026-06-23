@@ -23,13 +23,13 @@ public partial class StatsPage : ContentPage
 	private int _tabIndex;
 	private bool _suppressProgressExerciseSelector;
 	private Guid? _stickyProgressExerciseId;
-	private List<Guid> _progressExerciseIds = [];
+	private List<(Guid Id, string Name)> _progressExercises = [];
+	private string _progressExerciseSearch = "";
 
 	public StatsPage()
 	{
 		InitializeComponent();
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
-		ProgressExerciseSelector.SelectedIndexChanged += OnProgressExerciseSelected;
 		ProgressChart.Drawable = _progressDrawable;
 
 		StatsRefresh.Refreshing += async (_, _) =>
@@ -233,9 +233,10 @@ public partial class StatsPage : ContentPage
 		if (_suppressProgressExerciseSelector)
 			return;
 
+		var visible = GetVisibleProgressExercises();
 		var ix = ProgressExerciseSelector.SelectedIndex;
-		_stickyProgressExerciseId = ix >= 0 && ix < _progressExerciseIds.Count
-			? _progressExerciseIds[ix]
+		_stickyProgressExerciseId = ix >= 0 && ix < visible.Count
+			? visible[ix].Id
 			: null;
 
 		try
@@ -252,57 +253,98 @@ public partial class StatsPage : ContentPage
 		}
 	}
 
+	private async void OnProgressExerciseSearchChanged(object? sender, TextChangedEventArgs e)
+	{
+		_progressExerciseSearch = e.NewTextValue ?? "";
+		ApplyProgressExerciseFilter(preserveSelection: true);
+
+		if (_tabIndex != 2)
+			return;
+
+		try
+		{
+			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+			await RefreshProgressChartAsync(
+					repo,
+					ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get())
+				.ConfigureAwait(true);
+		}
+		catch (Exception ex)
+		{
+			await _dev.TryShowSafeAsync(ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
+		}
+	}
+
 	private async Task LoadProgressPickerAsync(IRhythmoRepository repo, Guid profileId)
 	{
 		var exercisedIds = await repo.ListExercisesWithPerformanceAsync(profileId).ConfigureAwait(true);
 		var all = await repo.ListExercisesAsync().ConfigureAwait(true);
-		var progressList = all
+		_progressExercises = all
 			.Where(c => exercisedIds.Contains(c.Id))
 			.OrderBy(c => c.NameFr)
-			.Select(c => (Id: c.Id, Name: string.IsNullOrWhiteSpace(c.NameFr) ? "—" : c.NameFr))
+			.Select(c => (c.Id, Name: string.IsNullOrWhiteSpace(c.NameFr) ? "—" : c.NameFr))
 			.ToList();
 
-		_progressExerciseIds = progressList.Select(p => p.Id).ToList();
-		var names = progressList.Select(p => p.Name).ToList();
+		ApplyProgressExerciseFilter(preserveSelection: true);
+		await RefreshProgressChartAsync(repo, profileId).ConfigureAwait(true);
+	}
+
+	private void ApplyProgressExerciseFilter(bool preserveSelection)
+	{
+		var visible = GetVisibleProgressExercises();
+		var names = visible.Select(p => p.Name).ToList();
+
+		Guid? want = preserveSelection ? _stickyProgressExerciseId : null;
+		if (want is null && visible.Count > 0)
+			want = visible[0].Id;
 
 		_suppressProgressExerciseSelector = true;
 		try
 		{
 			ProgressExerciseSelector.ItemsSource = names;
 
-			var want = _stickyProgressExerciseId;
-			if (want.HasValue)
+			if (want is { } id)
 			{
-				var ix = _progressExerciseIds.IndexOf(want.Value);
+				var ix = visible.FindIndex(p => p.Id == id);
 				ProgressExerciseSelector.SelectedIndex = ix >= 0 ? ix : names.Count > 0 ? 0 : -1;
 			}
 			else
 				ProgressExerciseSelector.SelectedIndex = names.Count > 0 ? 0 : -1;
 
 			var selIx = ProgressExerciseSelector.SelectedIndex;
-			_stickyProgressExerciseId = selIx >= 0 && selIx < _progressExerciseIds.Count
-				? _progressExerciseIds[selIx]
+			_stickyProgressExerciseId = selIx >= 0 && selIx < visible.Count
+				? visible[selIx].Id
 				: null;
 		}
 		finally
 		{
 			_suppressProgressExerciseSelector = false;
 		}
+	}
 
-		await RefreshProgressChartAsync(repo, profileId).ConfigureAwait(true);
+	private List<(Guid Id, string Name)> GetVisibleProgressExercises()
+	{
+		if (string.IsNullOrWhiteSpace(_progressExerciseSearch))
+			return _progressExercises;
+
+		var q = _progressExerciseSearch.Trim();
+		return _progressExercises
+			.Where(p => p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+			.ToList();
 	}
 
 	private async Task RefreshProgressChartAsync(IRhythmoRepository repo, Guid profileId)
 	{
+		var visible = GetVisibleProgressExercises();
 		var ix = ProgressExerciseSelector.SelectedIndex;
-		if (ix < 0 || ix >= _progressExerciseIds.Count)
+		if (ix < 0 || ix >= visible.Count)
 		{
 			_progressDrawable.SetSeries([]);
 			InvalidateProgressChart();
 			return;
 		}
 
-		var pts = await repo.ListPerformanceDailyAsync(profileId, _progressExerciseIds[ix]).ConfigureAwait(true);
+		var pts = await repo.ListPerformanceDailyAsync(profileId, visible[ix].Id).ConfigureAwait(true);
 		var list = pts.Select(static x => (x.PerformanceDate, x.MaxWeightKg)).ToList();
 		_progressDrawable.SetSeries(list);
 		InvalidateProgressChart();

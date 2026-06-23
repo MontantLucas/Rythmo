@@ -70,7 +70,7 @@ public sealed class SocialHubService
 			() => BuildBadges(circle.FirstOrDefault(m => m.UserId == meId), currentWorkouts, exerciseNames),
 			ct).ConfigureAwait(false);
 
-		var prs = BuildRecentPrSummary(await prsTask.ConfigureAwait(false));
+		var prs = BuildRecentPrSummary(await prsTask.ConfigureAwait(false), PrKind.Weight);
 		var live = await liveTask.ConfigureAwait(false);
 
 		var snapshot = new SocialHubSnapshot
@@ -289,11 +289,17 @@ public sealed class SocialHubService
 		return feed;
 	}
 
-	private static IReadOnlyList<PrFeedItemVm> BuildRecentPrSummary(IReadOnlyList<PrFeedItemVm> allPrs)
+	private static IReadOnlyList<PrFeedItemVm> BuildRecentPrSummary(
+		IReadOnlyList<PrFeedItemVm> allPrs,
+		PrKind? kindFilter = null)
 	{
 		var result = new List<PrFeedItemVm>();
 		var perUserCount = new Dictionary<Guid, int>();
-		foreach (var pr in allPrs.OrderByDescending(p => p.CompletedUtc))
+		var source = kindFilter is { } kind
+			? allPrs.Where(p => p.Kind == kind)
+			: allPrs;
+
+		foreach (var pr in source.OrderByDescending(p => p.CompletedUtc))
 		{
 			var count = perUserCount.GetValueOrDefault(pr.UserId);
 			if (count >= 2)

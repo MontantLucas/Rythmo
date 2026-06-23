@@ -13,7 +13,7 @@
               ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               HeightRequest="44"
-              Margin="0,0,0,16">
+              Margin="0,0,0,10">
             <Button x:Name="BackBtn"
                     Grid.Column="0"
                     BackgroundColor="{StaticResource RhythmSurface2}"
@@ -35,27 +35,27 @@
             </VerticalStackLayout>
         </Grid>
 
-        <Border Grid.Row="1"
-                Padding="18"
-                StrokeThickness="0"
-                BackgroundColor="{StaticResource RhythmSurface1}"
-                Margin="0,0,0,16">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="22" />
-            </Border.StrokeShape>
+        <VerticalStackLayout Grid.Row="1"
+                             Spacing="8"
+                             Margin="0,0,0,10">
+            <ScrollView Orientation="Horizontal"
+                        HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout x:Name="FilterChipsHost"
+                                       Spacing="6"
+                                       Padding="0,2" />
+            </ScrollView>
 
-            <VerticalStackLayout Spacing="14">
-                <HorizontalStackLayout x:Name="PeriodTabsHost"
-                                       Spacing="8" />
-
-                <VerticalStackLayout Spacing="10">
-                    <controls:RhythmOptionSelector x:Name="UserFilterSelector"
-                                                   SelectedIndexChanged="OnUserFilterChanged" />
-                    <controls:RhythmOptionSelector x:Name="ExerciseFilterSelector"
-                                                   SelectedIndexChanged="OnExerciseFilterChanged" />
-                </VerticalStackLayout>
-            </VerticalStackLayout>
-        </Border>
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="8">
+                <controls:RhythmOptionSelector x:Name="UserFilterSelector"
+                                               IsCompact="True"
+                                               SelectedIndexChanged="OnUserFilterChanged" />
+                <controls:RhythmOptionSelector x:Name="ExerciseFilterSelector"
+                                               Grid.Column="1"
+                                               IsCompact="True"
+                                               SelectedIndexChanged="OnExerciseFilterChanged" />
+            </Grid>
+        </VerticalStackLayout>
 
         <RefreshView x:Name="PrRefresh"
                      Grid.Row="2">

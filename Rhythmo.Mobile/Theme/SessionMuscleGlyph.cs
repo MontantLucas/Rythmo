@@ -41,6 +41,12 @@ internal static class SessionMuscleGlyph
 		return Chr(0xEBC4);
 	}
 
+	public static string DragHandle => Chr(0xE945); // drag_indicator
+
+	public static string ArrowUp => Chr(0xE316); // keyboard_arrow_up
+
+	public static string ArrowDown => Chr(0xE313); // keyboard_arrow_down
+
 	private static string Chr(int codePoint) =>
 		char.ConvertFromUtf32(codePoint);
 }

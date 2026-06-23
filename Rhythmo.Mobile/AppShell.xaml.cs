@@ -28,5 +28,12 @@ public partial class AppShell : Shell
 				_ = presenter.TryShowSafeAsync(ex, nameof(AppShell));
 			}
 		};
+
+		Navigated += (_, _) => _ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+		PropertyChanged += (_, e) =>
+		{
+			if (e.PropertyName == nameof(CurrentItem))
+				_ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+		};
 	}
 }

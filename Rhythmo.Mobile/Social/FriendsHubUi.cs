@@ -223,8 +223,8 @@ internal static class FriendsHubUi
 		Margin = new Thickness(0, 4, 0, 4)
 	};
 
-	public static Button PeriodTab(string text, bool selected, Action onClick) =>
-		TabPill(text, selected, onClick);
+	public static Button PeriodTab(string text, bool selected, Action onClick, bool compact = false) =>
+		TabPill(text, selected, onClick, compact);
 
 	// ——— composants internes ———
 
@@ -549,15 +549,15 @@ internal static class FriendsHubUi
 		TextColor = RhythmColors.TextPrimary
 	};
 
-	private static Button TabPill(string text, bool selected, Action onClick)
+	private static Button TabPill(string text, bool selected, Action onClick, bool compact = false)
 	{
 		var btn = new Button
 		{
 			Text = text,
-			FontSize = 12,
+			FontSize = compact ? 11 : 12,
 			FontFamily = "OpenSansSemibold",
-			Padding = new Thickness(12, 7),
-			CornerRadius = 14,
+			Padding = compact ? new Thickness(10, 5) : new Thickness(12, 7),
+			CornerRadius = compact ? 12 : 14,
 			BackgroundColor = Colors.Transparent,
 			TextColor = selected ? RhythmColors.Accent : RhythmColors.TextSecondary,
 			BorderColor = selected ? RhythmColors.Accent : RhythmColors.Surface2,
