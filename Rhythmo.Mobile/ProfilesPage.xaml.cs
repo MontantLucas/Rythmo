@@ -62,11 +62,25 @@ public partial class ProfilesPage : ContentPage
 			HeightEntry.Text =
 				row.HeightCm?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
 			AgeEntry.Text = row.AgeYears?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+			ProfileNameLabel.Text = string.IsNullOrWhiteSpace(row.DisplayName) ? "Athlète" : row.DisplayName;
+			ProfileMetaLabel.Text = BuildMeta(row);
 		}
 		catch (Exception ex)
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(LoadEditorAsync)).ConfigureAwait(false);
 		}
+	}
+
+	private static string BuildMeta(ProfileRow row)
+	{
+		var parts = new List<string>();
+		if (row.WeightKg > 0)
+			parts.Add($"{row.WeightKg:0.#} kg");
+		if (row.HeightCm is > 0)
+			parts.Add($"{row.HeightCm:0} cm");
+		if (row.AgeYears is > 0)
+			parts.Add($"{row.AgeYears} ans");
+		return parts.Count == 0 ? "Biométrie pour l’estimation kcal." : string.Join("  ·  ", parts);
 	}
 
 	private async Task SaveEditorAsync(Guid profileId)
@@ -97,6 +111,15 @@ public partial class ProfilesPage : ContentPage
 			row.Id = _auth.CurrentUserId ?? profileId;
 			await _repo.SaveProfileAsync(row).ConfigureAwait(true);
 			ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Set(row.Id);
+			try
+			{
+				await ServiceHelper.Services.GetRequiredService<MuscleRankingService>()
+					.RefreshAsync(row.Id).ConfigureAwait(true);
+			}
+			catch (Exception rankEx) when (rankEx is not OperationCanceledException)
+			{
+				await _dev.TryShowSafeAsync(rankEx, nameof(SaveEditorAsync) + ".Rank").ConfigureAwait(false);
+			}
 			await LoadEditorAsync(row.Id).ConfigureAwait(true);
 			await RhythmSuccessDialog.ShowAsync(this, "Profil enregistré avec succès").ConfigureAwait(true);
 		}

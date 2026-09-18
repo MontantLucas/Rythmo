@@ -6,61 +6,58 @@
              Title="Séances"
              Shell.NavBarIsVisible="False">
     <Grid>
-        <RefreshView x:Name="SessionsRefresh">
-            <Grid Padding="{OnIdiom Phone='20,16', Default='28,22'}"
-                  RowDefinitions="Auto,*">
-                <VerticalStackLayout Grid.Row="0" Spacing="14">
-                    <Label Style="{StaticResource RhythmH2}" Text="Tes séances" />
-                    <controls:RhythmSearchField x:Name="SessionSearchBar"
-                                                Placeholder="Rechercher une séance…"
-                                                TextChanged="OnSessionSearchChanged" />
-                </VerticalStackLayout>
+        <Grid RowDefinitions="Auto,*"
+              Padding="{OnIdiom Phone='20,16', Default='28,22'}">
+            <VerticalStackLayout Spacing="10">
+                <Label Style="{StaticResource RhythmH2}" Text="Séances" />
+                <controls:RhythmSectionTabs x:Name="HubTabs" />
+            </VerticalStackLayout>
 
-                <CollectionView x:Name="SessionsList"
-                                  Grid.Row="1"
-                                  Margin="0,18,0,96"
-                                  SelectionMode="Single"
-                                  SelectionChanged="OnSessionSelectionChanged"
-                                  EmptyView="Crée ta première séance depuis le bouton +.">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,14"
-                                    Padding="20"
-                                    StrokeThickness="0"
-                                    BackgroundColor="{StaticResource RhythmSurface1}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="22" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="12">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <Label Grid.Column="0"
-                                               FontFamily="OpenSansSemibold"
-                                               FontSize="18"
-                                               LineBreakMode="TailTruncation"
-                                               Text="{Binding Title}"
-                                               TextColor="{StaticResource RhythmTextPrimary}" />
-                                        <Label Grid.Column="1"
-                                               VerticalOptions="Start"
-                                               FontSize="22"
-                                               Text="⋯"
-                                               TextColor="{StaticResource RhythmTextSecondary}" />
-                                    </Grid>
-                                    <Label FontSize="13"
-                                           LineBreakMode="WordWrap"
-                                           Text="{Binding ChipTags}"
-                                           TextColor="{StaticResource RhythmAccent}" />
-                                    <Label FontSize="13"
-                                           Text="{Binding MetaLine}"
-                                           TextColor="{StaticResource RhythmTextSecondary}" />
-                                </VerticalStackLayout>
-                            </Border>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+            <Grid Grid.Row="1" Margin="0,8,0,0">
+                <Grid x:Name="SessionsPane">
+                    <RefreshView x:Name="SessionsRefresh">
+                        <Grid RowDefinitions="Auto,*">
+                            <controls:RhythmSearchField x:Name="SessionSearchBar"
+                                                        Placeholder="Rechercher une séance…"
+                                                        TextChanged="OnSessionSearchChanged" />
+
+                            <CollectionView x:Name="SessionsList"
+                                              Grid.Row="1"
+                                              Margin="0,14,0,96"
+                                              SelectionMode="Single"
+                                              SelectionChanged="OnSessionSelectionChanged"
+                                              EmptyView="Crée ta première séance depuis le bouton +.">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="0,0,0,18">
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label FontFamily="OpenSansSemibold"
+                                                       FontSize="18"
+                                                       LineBreakMode="TailTruncation"
+                                                       Text="{Binding Title}"
+                                                       TextColor="{StaticResource RhythmTextPrimary}" />
+                                                <Label FontSize="13"
+                                                       LineBreakMode="TailTruncation"
+                                                       Text="{Binding ChipTags}"
+                                                       TextColor="{StaticResource RhythmAccent}" />
+                                                <Label FontSize="12"
+                                                       Text="{Binding MetaLine}"
+                                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </Grid>
+                    </RefreshView>
+                </Grid>
+
+                <ContentView x:Name="CatalogHost" IsVisible="False" />
             </Grid>
-        </RefreshView>
+        </Grid>
 
-        <VerticalStackLayout HorizontalOptions="End"
+        <VerticalStackLayout x:Name="FabColumn"
+                             HorizontalOptions="End"
                              VerticalOptions="End"
                              Margin="0,0,22,92"
                              Spacing="12">
@@ -78,14 +75,14 @@
                         CornerRadius="16"
                         BackgroundColor="{StaticResource RhythmSurface2}"
                         TextColor="{StaticResource RhythmTextPrimary}"
-                        Text="Démarrage rapide"
-                        Clicked="OnFabQuickStart" />
+                        Text="Séance à la volée"
+                        Clicked="OnFabAdHoc" />
                 <Button Padding="16,12"
                         CornerRadius="16"
                         BackgroundColor="{StaticResource RhythmSurface2}"
                         TextColor="{StaticResource RhythmTextPrimary}"
-                        Text="Bibliothèque exercices"
-                        Clicked="OnFabOpenCatalog" />
+                        Text="Démarrage rapide"
+                        Clicked="OnFabQuickStart" />
                 <Button Padding="16,12"
                         CornerRadius="16"
                         BackgroundColor="{StaticResource RhythmSurface2}"
@@ -133,7 +130,8 @@
                            FontSize="20"
                            LineBreakMode="TailTruncation"
                            TextColor="{StaticResource RhythmTextPrimary}" />
-                    <Button Text="▶ Démarrer cette séance"
+                    <Button Style="{StaticResource RhythmBtnPrimary}"
+                            Text="Démarrer cette séance"
                             Clicked="OnSheetStart" />
                     <Button Style="{StaticResource RhythmBtnSecondary}"
                             Text="Modifier"

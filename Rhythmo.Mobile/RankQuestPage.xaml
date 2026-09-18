@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.RankQuestPage"
+             Title="Quête"
+             Shell.NavBarIsVisible="True">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Retour"
+                     Priority="0"
+                     Order="Primary"
+                     Clicked="OnNavBackClicked" />
+    </ContentPage.ToolbarItems>
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='20,16', Default='28,22'}"
+                             Spacing="20"
+                             MaximumWidthRequest="520"
+                             HorizontalOptions="Center">
+
+            <VerticalStackLayout x:Name="PrepHost" Spacing="20" IsVisible="False">
+                <VerticalStackLayout Spacing="4">
+                    <Label x:Name="PrepRankCodeLabel"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="36"
+                           HorizontalTextAlignment="Center" />
+                    <Label x:Name="PrepExerciseLabel"
+                           Style="{StaticResource RhythmH1}"
+                           HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap" />
+                    <Label x:Name="PrepRankTitleLabel"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <Border Padding="20,22"
+                        StrokeThickness="0"
+                        BackgroundColor="{StaticResource RhythmSurface1}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="20" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Objectif" />
+                        <Label x:Name="PrepObjectiveLabel"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="32"
+                               LineBreakMode="WordWrap"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Label x:Name="PrepLoadHintLabel"
+                               Style="{StaticResource RhythmCaption}"
+                               IsVisible="False" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout x:Name="PrepEquivalencesHost" Spacing="6">
+                    <Label Style="{StaticResource RhythmCaption}" Text="Équivalences" />
+                </VerticalStackLayout>
+
+                <Label x:Name="PrepFlexCaption"
+                       Style="{StaticResource RhythmCaption}"
+                       LineBreakMode="WordWrap"
+                       Text="Tu peux aussi atteindre ce rang avec une autre combinaison." />
+
+                <Button x:Name="StartQuestBtn"
+                        Style="{StaticResource RhythmBtnPrimary}"
+                        Text="Commencer la quête"
+                        MinimumHeightRequest="52"
+                        Clicked="OnStartQuestClicked" />
+            </VerticalStackLayout>
+
+			<VerticalStackLayout x:Name="ActiveHost" Spacing="16" IsVisible="False">
+                <VerticalStackLayout Spacing="2">
+                    <Label x:Name="ActiveRankLabel"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="28"
+                           HorizontalTextAlignment="Center" />
+                    <Label x:Name="ActiveExerciseLabel"
+                           Style="{StaticResource RhythmH2}"
+                           HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <Border Padding="16,14"
+                        StrokeThickness="0"
+                        BackgroundColor="{StaticResource RhythmSurface1}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource RhythmCaption}" Text="Objectif" />
+                        <Label x:Name="ActiveObjectiveLabel"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="22"
+                               LineBreakMode="WordWrap"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <VerticalStackLayout x:Name="ActiveEquivalencesHost"
+                                             Spacing="4"
+                                             Margin="0,8,0,0"
+                                             IsVisible="False" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label x:Name="TimerLabel"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="48"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource RhythmAccent}" />
+
+                <Label Style="{StaticResource RhythmCaption}"
+                       Text="Enregistrer une série" />
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Entry x:Name="KgEntry"
+                           Keyboard="Numeric"
+                           Placeholder="kg"
+                           MinimumHeightRequest="52" />
+                    <Entry x:Name="RepsEntry"
+                           Grid.Column="1"
+                           Keyboard="Numeric"
+                           Placeholder="reps"
+                           MinimumHeightRequest="52" />
+                </Grid>
+
+                <Button x:Name="LogBtn"
+                        Text="Enregistrer la série"
+                        MinimumHeightRequest="48"
+                        Clicked="OnLogSetClicked" />
+
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource RhythmH3}" Text="Séries réalisées" />
+                    <Label x:Name="LoggedEmptyLabel"
+                           Style="{StaticResource RhythmCaption}"
+                           Text="Aucune série pour l’instant." />
+                    <VerticalStackLayout x:Name="LoggedSetsHost" Spacing="8" />
+                </VerticalStackLayout>
+
+                <Button x:Name="SuccessBtn"
+                        Text="✓ Confirmer la réussite"
+                        Clicked="OnSuccessClicked" />
+                <Button Style="{StaticResource RhythmBtnGhost}"
+                        Text="Abandonner"
+                        Clicked="OnAbandonClicked" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

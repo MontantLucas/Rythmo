@@ -14,18 +14,22 @@ internal static class FriendsHubUi
 		IReadOnlyList<View> periodTabs,
 		IReadOnlyList<LeaderboardEntryVm> sessions,
 		IReadOnlyList<LeaderboardEntryVm> volume,
-		Action<string>? onProfileTap = null)
+		Action<string>? onProfileTap = null,
+		bool showHeading = true)
 	{
 		var card = SurfaceCard(padding: 16);
 		var stack = new VerticalStackLayout { Spacing = CardGap };
 
-		stack.Children.Add(new Label
+		if (showHeading)
 		{
-			Text = "Classement",
-			FontFamily = "OpenSansSemibold",
-			FontSize = 16,
-			TextColor = RhythmColors.TextPrimary
-		});
+			stack.Children.Add(new Label
+			{
+				Text = "Classement",
+				FontFamily = "OpenSansSemibold",
+				FontSize = 16,
+				TextColor = RhythmColors.TextPrimary
+			});
+		}
 		var tabsWrap = new HorizontalStackLayout { Spacing = 8 };
 		foreach (var t in periodTabs)
 			tabsWrap.Children.Add(t);
@@ -42,6 +46,9 @@ internal static class FriendsHubUi
 		Grid.SetColumn(volumeCol, 1);
 		columns.Children.Add(volumeCol);
 		stack.Children.Add(columns);
+
+		if (!showHeading)
+			return stack;
 
 		card.Content = stack;
 		return card;

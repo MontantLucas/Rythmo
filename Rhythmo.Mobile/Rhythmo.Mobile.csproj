@@ -38,6 +38,9 @@
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
 
+		<AndroidPackageFormat Condition="'$(GITHUB_ACTIONS)' == 'true'">apk</AndroidPackageFormat>
+		<EmbedAssembliesIntoApk Condition="'$(GITHUB_ACTIONS)' == 'true'">true</EmbedAssembliesIntoApk>
+
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
@@ -62,13 +65,15 @@
 		<MauiAsset Include="..\.env" Condition="Exists('$(MSBuildThisFileDirectory)..\.env')" LogicalName=".env" />
 	</ItemGroup>
 
-	<!-- Android n’embarque pas ..\.env : copie vers Resources/Raw avant le packaging. -->
+	<!-- Android n’embarque pas ..\.env : n’écrit que URL + clé publishable (jamais le mot de passe DB). -->
 	<Target Name="StageSupabaseEnv" BeforeTargets="PrepareForBuild">
 		<PropertyGroup>
 			<_RhythmoEnvSource>$(MSBuildThisFileDirectory)..\.env</_RhythmoEnvSource>
 			<_RhythmoEnvDest>$(MSBuildThisFileDirectory)Resources\Raw\supabase.env</_RhythmoEnvDest>
+			<_RhythmoStageScript>$(MSBuildThisFileDirectory)..\scripts\stage-client-env.ps1</_RhythmoStageScript>
 		</PropertyGroup>
-		<Copy SourceFiles="$(_RhythmoEnvSource)" DestinationFiles="$(_RhythmoEnvDest)" Condition="Exists('$(_RhythmoEnvSource)')" SkipUnchangedFiles="true" />
+		<Exec Condition="Exists('$(_RhythmoEnvSource)')"
+		      Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_RhythmoStageScript)&quot; -Source &quot;$(_RhythmoEnvSource)&quot; -Destination &quot;$(_RhythmoEnvDest)&quot;" />
 	</Target>
 
 	<ItemGroup>

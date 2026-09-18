@@ -16,6 +16,13 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(nameof(HistoryDetailPage), typeof(HistoryDetailPage));
 		Routing.RegisterRoute(nameof(ImportSessionsPage), typeof(ImportSessionsPage));
 		Routing.RegisterRoute(nameof(PrFeedPage), typeof(PrFeedPage));
+		Routing.RegisterRoute(nameof(MuscleGroupPage), typeof(MuscleGroupPage));
+		Routing.RegisterRoute(nameof(MusclePage), typeof(MusclePage));
+		Routing.RegisterRoute(nameof(ExerciseRankPage), typeof(ExerciseRankPage));
+		Routing.RegisterRoute(nameof(RankQuestsPage), typeof(RankQuestsPage));
+		Routing.RegisterRoute(nameof(RankQuestPage), typeof(RankQuestPage));
+		Routing.RegisterRoute(nameof(StatsPage), typeof(StatsPage));
+		Routing.RegisterRoute(nameof(ProfilesPage), typeof(ProfilesPage));
 
 		Loaded += (_, _) =>
 		{
@@ -29,11 +36,17 @@ public partial class AppShell : Shell
 			}
 		};
 
-		Navigated += (_, _) => _ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+		Navigated += (_, _) =>
+		{
+			_ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+			_ = QuestResumeDialog.TryPromptIfNeededAsync();
+		};
 		PropertyChanged += (_, e) =>
 		{
-			if (e.PropertyName == nameof(CurrentItem))
-				_ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+			if (e.PropertyName != nameof(CurrentItem))
+				return;
+			_ = WorkoutDraftRecovery.TryPromptIfNeededAsync();
+			_ = QuestResumeDialog.TryPromptIfNeededAsync();
 		};
 	}
 }

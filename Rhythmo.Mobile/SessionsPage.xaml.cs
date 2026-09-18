@@ -19,10 +19,13 @@ public partial class SessionsPage : ContentPage
 	private Guid? _sheetSessionId;
 
 	private bool _fabExpanded;
+	private CatalogPage? _catalogPage;
 
 	public SessionsPage()
 	{
 		InitializeComponent();
+		HubTabs.SetItems(["Mes séances", "Exercices"]);
+		HubTabs.SelectedIndexChanged += OnHubTabChanged;
 		SessionsRefresh.Refreshing += async (_, _) =>
 		{
 			await ReloadAsync().ConfigureAwait(true);
@@ -33,7 +36,41 @@ public partial class SessionsPage : ContentPage
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		if (HubTabs.SelectedIndex == 1 && _catalogPage is not null)
+			await _catalogPage.AppearAsync().ConfigureAwait(true);
+		else
+			await ReloadAsync().ConfigureAwait(true);
+	}
+
+	private async void OnHubTabChanged(object? sender, int index) =>
+		await ShowHubAsync(index).ConfigureAwait(true);
+
+	private async Task ShowHubAsync(int index)
+	{
+		var catalog = index == 1;
+		SessionsPane.IsVisible = !catalog;
+		CatalogHost.IsVisible = catalog;
+		FabColumn.IsVisible = !catalog;
+		if (!catalog)
+		{
+			_fabExpanded = false;
+			FabMenuPanel.IsVisible = false;
+			await ReloadAsync().ConfigureAwait(true);
+			return;
+		}
+
+		if (_catalogPage is null)
+		{
+			_catalogPage = new CatalogPage();
+			_catalogPage.SetEmbedded(true);
+			if (_catalogPage.Content is View body)
+			{
+				_catalogPage.Content = new ContentView();
+				CatalogHost.Content = body;
+			}
+		}
+
+		await _catalogPage.AppearAsync().ConfigureAwait(true);
 	}
 
 	private async Task ReloadAsync()
@@ -155,6 +192,20 @@ public partial class SessionsPage : ContentPage
 		await UiShellNavigate.GoAsync($"{nameof(SessionEditPage)}").ConfigureAwait(false);
 	}
 
+	private async void OnFabAdHoc(object? sender, EventArgs e)
+	{
+		_fabExpanded = false;
+		FabMenuPanel.IsVisible = false;
+		try
+		{
+			await AdHocWorkout.StartOrResumeAsync(this).ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			await _dev.TryShowSafeAsync(ex, nameof(OnFabAdHoc)).ConfigureAwait(false);
+		}
+	}
+
 	private async void OnFabQuickStart(object? sender, EventArgs e)
 	{
 		_fabExpanded = false;
@@ -186,13 +237,6 @@ public partial class SessionsPage : ContentPage
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(OnFabQuickStart)).ConfigureAwait(false);
 		}
-	}
-
-	private async void OnFabOpenCatalog(object? sender, EventArgs e)
-	{
-		_fabExpanded = false;
-		FabMenuPanel.IsVisible = false;
-		await UiShellNavigate.GoAsync("//CatalogPage").ConfigureAwait(false);
 	}
 
 	private async void OnFabImport(object? sender, EventArgs e)

@@ -450,6 +450,34 @@ public sealed class SupabaseRhythmoRepository(SupabaseClient client, RhythmoMemo
 		return res is null ? null : ToPersonalBest(res);
 	}
 
+	public async Task<IReadOnlyDictionary<Guid, double>> ListExerciseAllTimeMaxKgAsync(
+		Guid profileId, CancellationToken ct = default)
+	{
+		var bestsTask = Client.From<ExercisePersonalBestRecord>()
+			.Where(b => b.ProfileId == profileId)
+			.Get(ct);
+		var dailyTask = Client.From<ExercisePerformanceDailyRecord>()
+			.Where(p => p.ProfileId == profileId)
+			.Get(ct);
+		await Task.WhenAll(bestsTask, dailyTask).ConfigureAwait(false);
+
+		var map = new Dictionary<Guid, double>();
+		void Consider(Guid exerciseId, double kg)
+		{
+			if (kg <= double.Epsilon)
+				return;
+			if (!map.TryGetValue(exerciseId, out var cur) || kg > cur)
+				map[exerciseId] = kg;
+		}
+
+		foreach (var b in bestsTask.Result.Models ?? [])
+			Consider(b.ExerciseId, b.MaxKg);
+		foreach (var d in dailyTask.Result.Models ?? [])
+			Consider(d.ExerciseId, d.MaxWeightKg);
+
+		return map;
+	}
+
 	public async Task UpsertExercisePersonalBestAsync(ExercisePersonalBestRow row, CancellationToken ct = default)
 	{
 		await Client.From<ExercisePersonalBestRecord>().Upsert(new ExercisePersonalBestRecord
@@ -630,5 +658,210 @@ public sealed class SupabaseRhythmoRepository(SupabaseClient client, RhythmoMemo
 		PerformanceLine = e.PerformanceLine,
 		CompletedWorkoutId = e.CompletedWorkoutId,
 		AchievedUtc = e.AchievedUtc
+	};
+
+	public async Task<IReadOnlyList<ProfileExerciseRankRow>> ListProfileExerciseRanksAsync(
+		Guid profileId, CancellationToken ct = default)
+	{
+		var res = await Client.From<ProfileExerciseRankRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?.Select(ToExerciseRank).ToList() ?? [];
+	}
+
+	public async Task UpsertProfileExerciseRankAsync(ProfileExerciseRankRow row, CancellationToken ct = default)
+	{
+		await Client.From<ProfileExerciseRankRecord>().Upsert(FromExerciseRank(row), cancellationToken: ct)
+			.ConfigureAwait(false);
+	}
+
+	public async Task<IReadOnlyList<MuscleRankSnapshotRow>> ListMuscleRankSnapshotsAsync(
+		Guid profileId, string versionId, CancellationToken ct = default)
+	{
+		var res = await Client.From<MuscleRankSnapshotRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?
+			.Where(r => r.StandardVersionId == versionId)
+			.Select(ToMuscleSnap)
+			.ToList() ?? [];
+	}
+
+	public async Task UpsertMuscleRankSnapshotAsync(MuscleRankSnapshotRow row, CancellationToken ct = default)
+	{
+		await Client.From<MuscleRankSnapshotRecord>().Upsert(FromMuscleSnap(row), cancellationToken: ct)
+			.ConfigureAwait(false);
+	}
+
+	public async Task<IReadOnlyList<GroupRankSnapshotRow>> ListGroupRankSnapshotsAsync(
+		Guid profileId, string versionId, CancellationToken ct = default)
+	{
+		var res = await Client.From<GroupRankSnapshotRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?
+			.Where(r => r.StandardVersionId == versionId)
+			.Select(ToGroupSnap)
+			.ToList() ?? [];
+	}
+
+	public async Task UpsertGroupRankSnapshotAsync(GroupRankSnapshotRow row, CancellationToken ct = default)
+	{
+		await Client.From<GroupRankSnapshotRecord>().Upsert(FromGroupSnap(row), cancellationToken: ct)
+			.ConfigureAwait(false);
+	}
+
+	public async Task<IReadOnlyList<RankQuestAttemptRow>> ListQuestAttemptsAsync(
+		Guid profileId, CancellationToken ct = default)
+	{
+		var res = await Client.From<RankQuestAttemptRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?.Select(ToQuest).ToList() ?? [];
+	}
+
+	public async Task<RankQuestAttemptRow?> GetInProgressQuestAsync(Guid profileId, CancellationToken ct = default)
+	{
+		var res = await Client.From<RankQuestAttemptRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?
+			.Where(r => r.Status == "in_progress")
+			.OrderByDescending(r => r.StartedUtc)
+			.Select(ToQuest)
+			.FirstOrDefault();
+	}
+
+	public async Task InsertQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default)
+	{
+		await Client.From<RankQuestAttemptRecord>().Insert(FromQuest(row), cancellationToken: ct)
+			.ConfigureAwait(false);
+	}
+
+	public async Task UpdateQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default)
+	{
+		await Client.From<RankQuestAttemptRecord>().Upsert(FromQuest(row), cancellationToken: ct)
+			.ConfigureAwait(false);
+	}
+
+	public async Task<bool> HasQuestAttemptOnLocalDateAsync(
+		Guid profileId, Guid exerciseId, DateOnly localDate, CancellationToken ct = default)
+	{
+		var res = await Client.From<RankQuestAttemptRecord>()
+			.Where(r => r.ProfileId == profileId)
+			.Get(ct).ConfigureAwait(false);
+		return res.Models?.Any(r => r.ExerciseId == exerciseId && r.LocalDate == localDate) == true;
+	}
+
+	private static ProfileExerciseRankRow ToExerciseRank(ProfileExerciseRankRecord r) => new()
+	{
+		ProfileId = r.ProfileId,
+		ExerciseId = r.ExerciseId,
+		TheoreticalRaw = r.TheoreticalRaw,
+		TheoreticalRank = r.TheoreticalRank,
+		ValidatedRank = r.ValidatedRank,
+		HasSuccessfulValidation = r.HasSuccessfulValidation,
+		CalibrationFloor = r.CalibrationFloor,
+		AvailableQuestRank = r.AvailableQuestRank,
+		QuestUnlockedUtc = r.QuestUnlockedUtc,
+		BodyweightKgAtCompute = r.BodyweightKgAtCompute,
+		SexAtCompute = r.SexAtCompute,
+		R10Used = r.R10Used,
+		StandardVersionId = r.StandardVersionId,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static ProfileExerciseRankRecord FromExerciseRank(ProfileExerciseRankRow r) => new()
+	{
+		ProfileId = r.ProfileId,
+		ExerciseId = r.ExerciseId,
+		TheoreticalRaw = r.TheoreticalRaw,
+		TheoreticalRank = r.TheoreticalRank,
+		ValidatedRank = r.ValidatedRank,
+		HasSuccessfulValidation = r.HasSuccessfulValidation,
+		CalibrationFloor = r.CalibrationFloor,
+		AvailableQuestRank = r.AvailableQuestRank,
+		QuestUnlockedUtc = r.QuestUnlockedUtc,
+		BodyweightKgAtCompute = r.BodyweightKgAtCompute,
+		SexAtCompute = r.SexAtCompute,
+		R10Used = r.R10Used,
+		StandardVersionId = r.StandardVersionId,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static MuscleRankSnapshotRow ToMuscleSnap(MuscleRankSnapshotRecord r) => new()
+	{
+		ProfileId = r.ProfileId,
+		MuscleId = r.MuscleId,
+		StandardVersionId = r.StandardVersionId,
+		ValidatedRank = r.ValidatedRank,
+		TheoreticalRank = r.TheoreticalRank,
+		EvaluatedCount = r.EvaluatedCount,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static MuscleRankSnapshotRecord FromMuscleSnap(MuscleRankSnapshotRow r) => new()
+	{
+		ProfileId = r.ProfileId,
+		MuscleId = r.MuscleId,
+		StandardVersionId = r.StandardVersionId,
+		ValidatedRank = r.ValidatedRank,
+		TheoreticalRank = r.TheoreticalRank,
+		EvaluatedCount = r.EvaluatedCount,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static GroupRankSnapshotRow ToGroupSnap(GroupRankSnapshotRecord r) => new()
+	{
+		ProfileId = r.ProfileId,
+		GroupId = r.GroupId,
+		StandardVersionId = r.StandardVersionId,
+		ValidatedRaw = r.ValidatedRaw,
+		ValidatedRank = r.ValidatedRank,
+		EvaluatedCount = r.EvaluatedCount,
+		TotalCount = r.TotalCount,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static GroupRankSnapshotRecord FromGroupSnap(GroupRankSnapshotRow r) => new()
+	{
+		ProfileId = r.ProfileId,
+		GroupId = r.GroupId,
+		StandardVersionId = r.StandardVersionId,
+		ValidatedRaw = r.ValidatedRaw,
+		ValidatedRank = r.ValidatedRank,
+		EvaluatedCount = r.EvaluatedCount,
+		TotalCount = r.TotalCount,
+		UpdatedUtc = r.UpdatedUtc
+	};
+
+	private static RankQuestAttemptRow ToQuest(RankQuestAttemptRecord r) => new()
+	{
+		Id = r.Id,
+		ProfileId = r.ProfileId,
+		ExerciseId = r.ExerciseId,
+		TargetRank = r.TargetRank,
+		StartedUtc = r.StartedUtc,
+		ExpiresUtc = r.ExpiresUtc,
+		LocalDate = r.LocalDate,
+		Status = r.Status,
+		WeightKg = r.WeightKg,
+		Reps = r.Reps,
+		StandardVersionId = r.StandardVersionId
+	};
+
+	private static RankQuestAttemptRecord FromQuest(RankQuestAttemptRow r) => new()
+	{
+		Id = r.Id,
+		ProfileId = r.ProfileId,
+		ExerciseId = r.ExerciseId,
+		TargetRank = r.TargetRank,
+		StartedUtc = r.StartedUtc,
+		ExpiresUtc = r.ExpiresUtc,
+		LocalDate = r.LocalDate,
+		Status = r.Status,
+		WeightKg = r.WeightKg,
+		Reps = r.Reps,
+		StandardVersionId = r.StandardVersionId
 	};
 }

@@ -19,6 +19,8 @@ public partial class FriendsPage : ContentPage
 	public FriendsPage()
 	{
 		InitializeComponent();
+		HubTabs.SetItems(["Amis", "Classement"]);
+		HubTabs.SelectedIndexChanged += (_, idx) => ShowHub(idx);
 		FriendsRefresh.Refreshing += async (_, _) =>
 		{
 			_hub.InvalidateCache();
@@ -62,7 +64,8 @@ public partial class FriendsPage : ContentPage
 			BuildPeriodTabs(),
 			_snapshot.SessionLeaderboard,
 			_snapshot.VolumeLeaderboard,
-			ShowProfileNameAsync);
+			ShowProfileNameAsync,
+			showHeading: false);
 
 		PrSectionHeaderHost.Content = FriendsHubUi.SectionHeader(
 			"Nouveaux PR",
@@ -89,6 +92,14 @@ public partial class FriendsPage : ContentPage
 		BadgesHost.Content = _snapshot.Badges.Count == 0
 			? FriendsHubUi.EmptyHint("Badges — continue à t'entraîner.")
 			: FriendsHubUi.BadgesCarousel(_snapshot.Badges);
+
+		ShowHub(HubTabs.SelectedIndex);
+	}
+
+	private void ShowHub(int index)
+	{
+		AmisScroll.IsVisible = index == 0;
+		RankScroll.IsVisible = index == 1;
 	}
 
 	private IReadOnlyList<View> BuildPeriodTabs() =>

@@ -20,6 +20,37 @@ public sealed class PersonalRecordService
 		int totalFilledSets,
 		CancellationToken ct = default)
 	{
+		await ProcessAsync(
+			repo, profileId,
+			completedWorkoutId == Guid.Empty ? null : completedWorkoutId,
+			achievedUtc, exercises, totalFilledSets, ct).ConfigureAwait(false);
+	}
+
+	public Task ProcessQuestSetAsync(
+		IRhythmoRepository repo,
+		Guid profileId,
+		Guid exerciseId,
+		double weightKg,
+		int reps,
+		CancellationToken ct = default) =>
+		ProcessAsync(
+			repo,
+			profileId,
+			null,
+			DateTime.UtcNow,
+			[new CompletedExerciseSetsDto(exerciseId, [new SetDto(reps, weightKg, 1)])],
+			MinSetsForPr,
+			ct);
+
+	private async Task ProcessAsync(
+		IRhythmoRepository repo,
+		Guid profileId,
+		Guid? completedWorkoutId,
+		DateTime achievedUtc,
+		IReadOnlyList<CompletedExerciseSetsDto> exercises,
+		int totalFilledSets,
+		CancellationToken ct)
+	{
 		if (totalFilledSets < MinSetsForPr || exercises.Count == 0)
 			return;
 
