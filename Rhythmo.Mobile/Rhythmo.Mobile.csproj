@@ -73,7 +73,7 @@
 			<_RhythmoEnvDest>$(MSBuildThisFileDirectory)Resources\Raw\supabase.env</_RhythmoEnvDest>
 			<_RhythmoStageScript>$(MSBuildThisFileDirectory)..\scripts\stage-client-env.ps1</_RhythmoStageScript>
 		</PropertyGroup>
-		<Exec Condition="Exists('$(_RhythmoEnvSource)')"
+		<Exec Condition="Exists('$(_RhythmoEnvSource)') And $([MSBuild]::IsOSPlatform('Windows'))"
 		      Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_RhythmoStageScript)&quot; -Source &quot;$(_RhythmoEnvSource)&quot; -Destination &quot;$(_RhythmoEnvDest)&quot;" />
 	</Target>
 
