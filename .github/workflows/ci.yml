@@ -53,8 +53,8 @@ jobs:
           url="${SUPABASE_URL:-https://lvmqvylradoimaeckwpj.supabase.co}"
           key="${SUPABASE_ANON_KEY:-}"
           if [ -z "$key" ]; then
-            echo "Secret SUPABASE_ANON_KEY manquant : l'APK compilera mais la connexion cloud échouera."
-            key="sb_publishable_missing"
+            echo "::error::Secret SUPABASE_ANON_KEY manquant. Settings → Secrets and variables → Actions."
+            exit 1
           fi
           mkdir -p Rhythmo.Mobile/Resources/Raw
           printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$url" "$key" | tee .env Rhythmo.Mobile/Resources/Raw/supabase.env >/dev/null

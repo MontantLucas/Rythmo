@@ -97,7 +97,8 @@ dotnet test Rhythmo.Shared.Tests\Rhythmo.Shared.Tests.csproj
 
 Artifact : **Actions** → le run → `rhythmo-android`.
 
-Secret recommandé : `SUPABASE_ANON_KEY` (sinon l’APK compile mais ne se connecte pas au cloud).  
+Secret **obligatoire** : `SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions).  
+Sans ce secret, l’APK n’est plus publié (évite un « Invalid API Key »).  
 Optionnel : `SUPABASE_URL`.
 
 ## APK Android (local)
