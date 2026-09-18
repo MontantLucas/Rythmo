@@ -59,12 +59,15 @@ jobs:
           mkdir -p Rhythmo.Mobile/Resources/Raw
           printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$url" "$key" | tee .env Rhythmo.Mobile/Resources/Raw/supabase.env >/dev/null
 
+      - name: Restore
+        run: dotnet restore Rhythmo.Mobile/Rhythmo.Mobile.csproj
+
       - name: Publish APK Android
         run: >
           dotnet publish Rhythmo.Mobile/Rhythmo.Mobile.csproj
           -c Release
           -f net10.0-android
-          -p:TargetFrameworks=net10.0-android
+          --no-restore
           -p:AndroidPackageFormat=apk
           -p:EmbedAssembliesIntoApk=true
 
