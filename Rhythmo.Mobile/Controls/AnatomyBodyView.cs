@@ -6,12 +6,17 @@ namespace Rhythmo.Mobile.Controls;
 
 public sealed class AnatomyBodyView : ContentView
 {
-	private const double DualBreakpoint = 680;
-
 	private readonly Dictionary<string, BodyGroupVisual> _groups = [];
 	private readonly AnatomyCanvas _front = new(AnatomyViewKind.Front);
 	private readonly AnatomyCanvas _back = new(AnatomyViewKind.Back);
-	private readonly Grid _bodies = new() { ColumnSpacing = 8 };
+	private readonly Image _robot = new()
+	{
+		Aspect = Aspect.AspectFit,
+		HorizontalOptions = LayoutOptions.Fill,
+		VerticalOptions = LayoutOptions.Fill,
+		InputTransparent = true
+	};
+	private readonly Grid _stage = new() { HeightRequest = 340 };
 	private readonly HorizontalStackLayout _toggle = new()
 	{
 		Spacing = 8,
@@ -19,10 +24,7 @@ public sealed class AnatomyBodyView : ContentView
 	};
 	private readonly Button _frontBtn = MakeToggle("Avant");
 	private readonly Button _backBtn = MakeToggle("Arrière");
-	private readonly Label _frontCaption = MakeCaption("Vue avant");
-	private readonly Label _backCaption = MakeCaption("Vue arrière");
-	private readonly VerticalStackLayout _frontCol = new() { Spacing = 6 };
-	private readonly VerticalStackLayout _backCol = new() { Spacing = 6 };
+	private readonly Label _viewCaption = MakeCaption("Vue avant");
 	private readonly Label _nameLabel = new()
 	{
 		FontFamily = "OpenSansSemibold",
@@ -44,23 +46,16 @@ public sealed class AnatomyBodyView : ContentView
 	};
 	private readonly VerticalStackLayout _panel;
 	private bool _showBack;
-	private bool _dual;
 	private string? _selectedId;
+	private int? _overallRank;
+	private string? _robotFile;
 
 	public event EventHandler<string>? GroupOpened;
 
 	public AnatomyBodyView()
 	{
-		_frontBtn.Clicked += (_, _) =>
-		{
-			_showBack = false;
-			ApplyLayout();
-		};
-		_backBtn.Clicked += (_, _) =>
-		{
-			_showBack = true;
-			ApplyLayout();
-		};
+		_frontBtn.Clicked += (_, _) => SetSide(false);
+		_backBtn.Clicked += (_, _) => SetSide(true);
 		_front.GroupPicked += OnGroupPicked;
 		_back.GroupPicked += OnGroupPicked;
 		_front.GroupHovered += (_, id) => SyncHover(id);
@@ -74,10 +69,9 @@ public sealed class AnatomyBodyView : ContentView
 		_toggle.Children.Add(_frontBtn);
 		_toggle.Children.Add(_backBtn);
 
-		_frontCol.Children.Add(_front);
-		_frontCol.Children.Add(_frontCaption);
-		_backCol.Children.Add(_back);
-		_backCol.Children.Add(_backCaption);
+		_stage.Children.Add(_robot);
+		_stage.Children.Add(_front);
+		_stage.Children.Add(_back);
 
 		_panel = new VerticalStackLayout
 		{
@@ -106,15 +100,14 @@ public sealed class AnatomyBodyView : ContentView
 			})
 		});
 
-		var root = new VerticalStackLayout { Spacing = 16 };
-		root.Children.Add(_toggle);
-		root.Children.Add(_bodies);
-		root.Children.Add(_panel);
-		Content = root;
+		Content = new VerticalStackLayout
+		{
+			Spacing = 16,
+			Children = { _toggle, _stage, _viewCaption, _panel }
+		};
 		MaximumWidthRequest = 720;
 		HorizontalOptions = LayoutOptions.Center;
-		SizeChanged += (_, _) => ApplyLayout();
-		ApplyLayout();
+		ApplySide();
 		ShowHint();
 	}
 
@@ -124,10 +117,23 @@ public sealed class AnatomyBodyView : ContentView
 		foreach (var g in groups)
 			_groups[g.GroupId] = g;
 
+		var evaluated = _groups.Values
+			.Where(g => g.ValidatedRank is not null)
+			.Select(g => g.ValidatedRank!.Value)
+			.ToList();
+		_overallRank = evaluated.Count == 0
+			? null
+			: Math.Clamp(
+				(int)Math.Floor(evaluated.Average()),
+				ExerciseRankCalculator.MinRank,
+				ExerciseRankCalculator.MaxRank);
+
 		_front.SetGroups(_groups);
 		_back.SetGroups(_groups);
 		if (_selectedId is not null)
 			ShowGroup(_selectedId);
+		else
+			ShowHint();
 	}
 
 	private void OnGroupPicked(object? sender, string? groupId)
@@ -165,51 +171,40 @@ public sealed class AnatomyBodyView : ContentView
 		_rankHost.Content = RankBadge.Stacked(g.ValidatedRank);
 		_evalLabel.Text = $"{g.EvaluatedCount}/{g.TotalCount} muscles évalués";
 		_openBtn.IsVisible = true;
+		PaintRobot(g.ValidatedRank);
 	}
 
 	private void ShowHint()
 	{
-		_nameLabel.Text = "Sélectionne un groupe";
-		_rankHost.Content = null;
-		_evalLabel.Text = "Touche une zone musculaire pour voir son rang.";
+		_nameLabel.Text = "Rythmo";
+		_rankHost.Content = RankBadge.Stacked(_overallRank);
+		_evalLabel.Text = _overallRank is null
+			? "Touche une zone du robot pour voir le rang du groupe."
+			: "Rang global · touche une zone pour un groupe.";
 		_openBtn.IsVisible = false;
+		PaintRobot(_overallRank);
 	}
 
-	private void ApplyLayout()
+	private void PaintRobot(int? rank)
 	{
-		_dual = Width >= DualBreakpoint;
-		_toggle.IsVisible = !_dual;
-		_frontCaption.IsVisible = _dual;
-		_backCaption.IsVisible = _dual;
-		PaintToggle();
-
-		_bodies.Children.Clear();
-		_bodies.ColumnDefinitions.Clear();
-		_bodies.RowDefinitions.Clear();
-
-		var bodyH = _dual ? 460d : 420d;
-		_front.HeightRequest = bodyH;
-		_back.HeightRequest = bodyH;
-
-		if (_dual)
-		{
-			_bodies.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-			_bodies.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-			_front.IsVisible = true;
-			_back.IsVisible = true;
-			_bodies.Add(_frontCol, 0);
-			_bodies.Add(_backCol, 1);
+		var file = RankRobot.FileName(rank);
+		if (_robotFile == file)
 			return;
-		}
+		_robotFile = file;
+		_robot.Source = file;
+	}
 
-		_bodies.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+	private void SetSide(bool back)
+	{
+		_showBack = back;
+		ApplySide();
+	}
+
+	private void ApplySide()
+	{
 		_front.IsVisible = !_showBack;
 		_back.IsVisible = _showBack;
-		_bodies.Add(_showBack ? _backCol : _frontCol, 0);
-	}
-
-	private void PaintToggle()
-	{
+		_viewCaption.Text = _showBack ? "Vue arrière" : "Vue avant";
 		StyleToggle(_frontBtn, !_showBack);
 		StyleToggle(_backBtn, _showBack);
 	}
@@ -249,9 +244,10 @@ public sealed class AnatomyBodyView : ContentView
 		{
 			_map = new AnatomyBodyDrawable { Kind = kind };
 			Drawable = _map;
+			BackgroundColor = Colors.Transparent;
 			HorizontalOptions = LayoutOptions.Fill;
 			VerticalOptions = LayoutOptions.Fill;
-			MinimumHeightRequest = 320;
+			MinimumHeightRequest = 280;
 			StartInteraction += (_, e) =>
 			{
 				if (e.Touches is not { Length: > 0 })

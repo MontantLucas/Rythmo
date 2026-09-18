@@ -56,6 +56,7 @@
 
 		<!-- Images (onglets) -->
 		<MauiImage Include="Resources\Images\*.svg" />
+		<MauiImage Update="Resources\Images\robot_r*.svg" BaseSize="400,500" />
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
 

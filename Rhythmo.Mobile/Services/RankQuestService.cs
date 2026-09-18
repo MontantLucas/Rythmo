@@ -9,12 +9,28 @@ public sealed class RankQuestService(IRhythmoRepository repo, MuscleRankingServi
 {
 	public async Task ExpireStaleAsync(Guid profileId, CancellationToken ct = default)
 	{
-		var current = await repo.GetInProgressQuestAsync(profileId, ct).ConfigureAwait(false);
-		if (current is null)
-			return;
-		if (!QuestRules.IsExpired(current.StartedUtc, current.ExpiresUtc, DateTime.UtcNow))
-			return;
-		await FailAsync(current, "failed_expired", ct).ConfigureAwait(false);
+		var attempts = await repo.ListQuestAttemptsAsync(profileId, ct).ConfigureAwait(false);
+		foreach (var current in attempts.Where(a => a.Status == "in_progress"))
+		{
+			var sibling = attempts
+				.Where(a => a.Id != current.Id
+				            && a.ExerciseId == current.ExerciseId
+				            && a.LocalDate == current.LocalDate
+				            && a.Status is "succeeded" or "failed_expired" or "failed_user")
+				.OrderByDescending(a => a.StartedUtc)
+				.FirstOrDefault();
+			if (sibling is not null)
+			{
+				current.Status = sibling.Status;
+				current.WeightKg = sibling.WeightKg;
+				current.Reps = sibling.Reps;
+				await repo.UpdateQuestAttemptAsync(current, ct).ConfigureAwait(false);
+				continue;
+			}
+
+			if (QuestRules.IsExpired(current.StartedUtc, current.ExpiresUtc, DateTime.UtcNow))
+				await FailAsync(current, "failed_expired", ct).ConfigureAwait(false);
+		}
 	}
 
 	public async Task<QuestStartResult> TryStartAsync(Guid profileId, Guid exerciseId, CancellationToken ct = default)
@@ -101,9 +117,9 @@ public sealed class RankQuestService(IRhythmoRepository repo, MuscleRankingServi
 			    attempt.TargetRank, option.Primary, weightKg, reps, rank.R10Used.Value))
 			return false;
 
-		attempt.Status = "succeeded";
 		attempt.WeightKg = weightKg;
 		attempt.Reps = reps;
+		attempt.Status = "succeeded";
 		await repo.UpdateQuestAttemptAsync(attempt, ct).ConfigureAwait(false);
 
 		var next = ExerciseRankProgression.ApplyQuestSuccess(new ExerciseRankState(
@@ -132,6 +148,9 @@ public sealed class RankQuestService(IRhythmoRepository repo, MuscleRankingServi
 
 	private async Task FailCoreAsync(RankQuestAttemptRow attempt, string status, CancellationToken ct)
 	{
+		if (attempt.Status is "succeeded" or "failed_expired" or "failed_user")
+			return;
+
 		attempt.Status = status;
 		await repo.UpdateQuestAttemptAsync(attempt, ct).ConfigureAwait(false);
 

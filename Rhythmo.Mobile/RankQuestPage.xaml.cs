@@ -17,6 +17,8 @@ public partial class RankQuestPage : ContentPage
 	private IDispatcherTimer? _timer;
 	private QuestPrepState? _prep;
 	private bool _loaded;
+	private bool _leaving;
+	private bool _settling;
 
 	private sealed record QuestPrepState(
 		string ExerciseName,
@@ -52,9 +54,12 @@ public partial class RankQuestPage : ContentPage
 
 	private async Task LeaveAsync()
 	{
-		if (_attempt is null)
+		if (_leaving || _settling)
+			return;
+
+		if (_attempt is null || !IsActive(_attempt))
 		{
-			await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+			await ExitAsync().ConfigureAwait(false);
 			return;
 		}
 
@@ -68,8 +73,19 @@ public partial class RankQuestPage : ContentPage
 		await ServiceHelper.Services.GetRequiredService<RankQuestService>()
 			.AbandonAsync(_attempt).ConfigureAwait(true);
 		_attempt = null;
+		await ExitAsync().ConfigureAwait(false);
+	}
+
+	private async Task ExitAsync()
+	{
+		if (_leaving)
+			return;
+		_leaving = true;
 		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
 	}
+
+	private static bool IsActive(RankQuestAttemptRow attempt) =>
+		string.Equals(attempt.Status, "in_progress", StringComparison.Ordinal);
 
 	public string ExerciseIdEncoded
 	{
@@ -297,9 +313,10 @@ public partial class RankQuestPage : ContentPage
 			TimerLabel.Text = "00:00";
 			await ServiceHelper.Services.GetRequiredService<RankQuestService>()
 				.FailAsync(_attempt, "failed_expired").ConfigureAwait(true);
+			_attempt = null;
 			await RhythmAlertDialog.ShowAsync(this, "Temps écoulé", "Quête échouée. Réessaie demain.", isError: true)
 				.ConfigureAwait(true);
-			await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+			await ExitAsync().ConfigureAwait(false);
 			return;
 		}
 
@@ -369,7 +386,7 @@ public partial class RankQuestPage : ContentPage
 
 	private async void OnSuccessClicked(object? sender, EventArgs e)
 	{
-		if (_attempt is null)
+		if (_settling || _attempt is null)
 			return;
 		var win = _logged.LastOrDefault(s => s.Reached);
 		if (!win.Reached)
@@ -379,34 +396,46 @@ public partial class RankQuestPage : ContentPage
 			return;
 		}
 
-		var quests = ServiceHelper.Services.GetRequiredService<RankQuestService>();
-		var ok = await quests.TryCompleteSuccessAsync(_attempt, win.Kg, win.Reps).ConfigureAwait(true);
-		if (!ok)
-		{
-			await RhythmAlertDialog.ShowAsync(
-				this,
-				"Seuil non atteint",
-				"Cette série ne valide pas encore le rang ciblé.",
-				isError: true).ConfigureAwait(true);
-			return;
-		}
-
+		_settling = true;
+		_timer?.Stop();
+		_attempt.Status = "succeeded";
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-			await ServiceHelper.Services.GetRequiredService<PersonalRecordService>()
-				.ProcessQuestSetAsync(repo, profileId, _exerciseId, win.Kg, win.Reps)
-				.ConfigureAwait(true);
-		}
-		catch
-		{
-			// PR non bloquant
-		}
+			var quests = ServiceHelper.Services.GetRequiredService<RankQuestService>();
+			var ok = await quests.TryCompleteSuccessAsync(_attempt, win.Kg, win.Reps).ConfigureAwait(true);
+			if (!ok)
+			{
+				_attempt.Status = "in_progress";
+				_settling = false;
+				await RhythmAlertDialog.ShowAsync(
+					this,
+					"Seuil non atteint",
+					"Cette série ne valide pas encore le rang ciblé.",
+					isError: true).ConfigureAwait(true);
+				return;
+			}
 
-		_timer?.Stop();
-		await RhythmSuccessDialog.ShowAsync(this, "Rang validé. Prochaine quête demain.").ConfigureAwait(true);
-		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+			try
+			{
+				var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+				await ServiceHelper.Services.GetRequiredService<PersonalRecordService>()
+					.ProcessQuestSetAsync(repo, profileId, _exerciseId, win.Kg, win.Reps)
+					.ConfigureAwait(true);
+			}
+			catch
+			{
+				// PR non bloquant
+			}
+
+			_attempt = null;
+			await RhythmSuccessDialog.ShowAsync(this, "Rang validé. Prochaine quête demain.").ConfigureAwait(true);
+			await ExitAsync().ConfigureAwait(false);
+		}
+		finally
+		{
+			_settling = false;
+		}
 	}
 
 	private async void OnAbandonClicked(object? sender, EventArgs e)
@@ -416,7 +445,8 @@ public partial class RankQuestPage : ContentPage
 		_timer?.Stop();
 		await ServiceHelper.Services.GetRequiredService<RankQuestService>()
 			.AbandonAsync(_attempt).ConfigureAwait(true);
-		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+		_attempt = null;
+		await ExitAsync().ConfigureAwait(false);
 	}
 
 	private bool TryReadSet(out double kg, out int reps)

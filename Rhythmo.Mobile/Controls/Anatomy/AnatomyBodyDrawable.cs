@@ -1,14 +1,9 @@
 using Rhythmo.Mobile.Theme;
-using Rhythmo.Shared.Ranking;
 
 namespace Rhythmo.Mobile.Controls.Anatomy;
 
 internal sealed class AnatomyBodyDrawable : IDrawable
 {
-	private static readonly Color Skin = Color.FromArgb("#252A33");
-	private static readonly Color HeadFill = Color.FromArgb("#323844");
-	private static readonly Color MuscleStroke = Color.FromArgb("#141820");
-
 	public AnatomyViewKind Kind { get; set; } = AnatomyViewKind.Front;
 
 	public IReadOnlyDictionary<string, BodyGroupVisual> Groups { get; set; } =
@@ -33,17 +28,8 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 			canvas.Translate(ox, oy);
 			canvas.Scale(scale, scale);
 
-			canvas.FillColor = Skin;
-			canvas.FillPath(AnatomyGeometry.Silhouette(Kind));
-
 			foreach (var region in AnatomyGeometry.For(Kind))
 				DrawRegion(canvas, region);
-
-			canvas.FillColor = HeadFill;
-			canvas.FillPath(AnatomyGeometry.Head);
-			canvas.StrokeColor = MuscleStroke;
-			canvas.StrokeSize = 0.8f;
-			canvas.DrawPath(AnatomyGeometry.Head);
 		}
 		finally
 		{
@@ -53,38 +39,29 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 
 	private void DrawRegion(ICanvas canvas, AnatomyRegion region)
 	{
-		Groups.TryGetValue(region.GroupId, out var visual);
-		var rank = visual?.ValidatedRank;
-		var fill = RankPalette.For(rank);
-		if (region.Decorative)
-			fill = Lighten(fill, 0.10f);
-
 		var selected = SelectedGroupId == region.GroupId;
 		var hovered = HoveredGroupId == region.GroupId && !selected;
-		if (selected)
-			fill = Lighten(fill, 0.18f);
-		else if (hovered)
-			fill = Lighten(fill, 0.10f);
+		if (!selected && !hovered)
+			return;
 
-		canvas.FillColor = fill;
-		canvas.FillPath(region.Path);
+		Groups.TryGetValue(region.GroupId, out var visual);
+		var rankColor = RankPalette.For(visual?.ValidatedRank);
 
 		canvas.StrokeLineJoin = LineJoin.Round;
 		canvas.StrokeLineCap = LineCap.Round;
 		if (selected)
 		{
+			canvas.FillColor = rankColor.WithAlpha(0.28f);
+			canvas.FillPath(region.Path);
 			canvas.StrokeColor = RhythmColors.Accent;
-			canvas.StrokeSize = 2.4f;
-		}
-		else if (hovered)
-		{
-			canvas.StrokeColor = Colors.White.WithAlpha(0.45f);
-			canvas.StrokeSize = 1.8f;
+			canvas.StrokeSize = 2.6f;
 		}
 		else
 		{
-			canvas.StrokeColor = MuscleStroke;
-			canvas.StrokeSize = region.Decorative ? 0.6f : 1.05f;
+			canvas.FillColor = Colors.White.WithAlpha(0.14f);
+			canvas.FillPath(region.Path);
+			canvas.StrokeColor = Colors.White.WithAlpha(0.45f);
+			canvas.StrokeSize = 1.8f;
 		}
 
 		canvas.DrawPath(region.Path);
@@ -117,12 +94,12 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 	private static readonly PointF[] HitOffsets =
 	[
 		new(0, 0),
-		new(-3, 0),
-		new(3, 0),
-		new(0, -3),
-		new(0, 3),
-		new(-2, -2),
-		new(2, 2)
+		new(-4, 0),
+		new(4, 0),
+		new(0, -4),
+		new(0, 4),
+		new(-3, -3),
+		new(3, 3)
 	];
 
 	public static (float Scale, float Ox, float Oy) Fit(float canvasW, float canvasH)
@@ -131,15 +108,5 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 		var ox = (canvasW - AnatomyGeometry.W * scale) / 2f;
 		var oy = (canvasH - AnatomyGeometry.H * scale) / 2f;
 		return (scale, ox, oy);
-	}
-
-	private static Color Lighten(Color c, float amount)
-	{
-		amount = Math.Clamp(amount, 0f, 1f);
-		return Color.FromRgba(
-			c.Red + (1f - c.Red) * amount,
-			c.Green + (1f - c.Green) * amount,
-			c.Blue + (1f - c.Blue) * amount,
-			c.Alpha);
 	}
 }

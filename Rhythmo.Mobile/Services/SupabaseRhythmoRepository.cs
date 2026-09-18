@@ -734,14 +734,42 @@ public sealed class SupabaseRhythmoRepository(SupabaseClient client, RhythmoMemo
 
 	public async Task InsertQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default)
 	{
-		await Client.From<RankQuestAttemptRecord>().Insert(FromQuest(row), cancellationToken: ct)
+		var res = await Client.From<RankQuestAttemptRecord>()
+			.Insert(FromQuest(row), cancellationToken: ct)
 			.ConfigureAwait(false);
+		var inserted = res.Models?.FirstOrDefault();
+		if (inserted is not null && inserted.Id != Guid.Empty)
+			row.Id = inserted.Id;
 	}
 
 	public async Task UpdateQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default)
 	{
-		await Client.From<RankQuestAttemptRecord>().Upsert(FromQuest(row), cancellationToken: ct)
+		await CloseInProgressQuestsAsync(row.ProfileId, row.Status, row.WeightKg, row.Reps, ct)
 			.ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Ferme toute tentative <c>in_progress</c> du profil (filtre statut, pas l’id client).
+	/// </summary>
+	private async Task CloseInProgressQuestsAsync(
+		Guid profileId, string status, double? weightKg, int? reps, CancellationToken ct)
+	{
+		var table = Client.From<RankQuestAttemptRecord>()
+			.Where(r => r.ProfileId == profileId && r.Status == "in_progress")
+			.Set(r => r.Status, status);
+		try
+		{
+			if (weightKg is not null)
+				table.Set(r => r.WeightKg!, weightKg);
+			if (reps is not null)
+				table.Set(r => r.Reps!, reps);
+		}
+		catch (ArgumentException)
+		{
+			// Le statut suffit à retirer la quête de « en cours ».
+		}
+
+		await table.Update(cancellationToken: ct).ConfigureAwait(false);
 	}
 
 	public async Task<bool> HasQuestAttemptOnLocalDateAsync(

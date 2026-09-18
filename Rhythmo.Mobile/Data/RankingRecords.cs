@@ -105,7 +105,8 @@ public sealed class GroupRankSnapshotRecord : BaseModel
 [Table("rank_quest_attempts")]
 public sealed class RankQuestAttemptRecord : BaseModel
 {
-	[PrimaryKey("id", false)]
+	/// <summary><c>true</c> = l’id client est envoyé à l’insert, sinon Postgres en génère un autre et le succès ne ferme plus la tentative.</summary>
+	[PrimaryKey("id", true)]
 	public Guid Id { get; set; }
 
 	[Column("profile_id")]
