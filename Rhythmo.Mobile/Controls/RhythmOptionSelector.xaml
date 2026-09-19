@@ -6,8 +6,9 @@
     <Border x:Name="TriggerBorder"
             Padding="16,14"
             MinimumHeightRequest="48"
-            BackgroundColor="{StaticResource RhythmSurface1}"
-            StrokeThickness="0">
+            BackgroundColor="{StaticResource RhythmSurface2}"
+            Stroke="#3A4254"
+            StrokeThickness="1">
         <Border.StrokeShape>
             <RoundRectangle CornerRadius="14" />
         </Border.StrokeShape>
@@ -21,9 +22,10 @@
                    TextColor="{StaticResource RhythmTextPrimary}"
                    VerticalOptions="Center"
                    LineBreakMode="TailTruncation"
-                   MaxLines="2" />
-            <Label Grid.Column="1"
-                   FontSize="13"
+                   MaxLines="1" />
+            <Label x:Name="ChevronLabel"
+                   Grid.Column="1"
+                   FontSize="12"
                    Text="▾"
                    TextColor="{StaticResource RhythmTextSecondary}"
                    VerticalOptions="Center" />

@@ -31,6 +31,8 @@ public partial class StatsPage : ContentPage
 		InitializeComponent();
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
 		ProgressChart.Drawable = _progressDrawable;
+		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
+		StatsTabs.SelectedIndexChanged += (_, idx) => ShowTab(idx);
 
 		StatsRefresh.Refreshing += async (_, _) =>
 		{
@@ -45,20 +47,6 @@ public partial class StatsPage : ContentPage
 		base.OnAppearing();
 		ShowTab(_tabIndex);
 		await ReloadAsync().ConfigureAwait(true);
-	}
-
-	private static Style? LookupButtonStyle(string key)
-	{
-		var app = Application.Current;
-		if (app?.Resources.TryGetValue(key, out var o) == true && o is Style sty)
-			return sty;
-		foreach (var md in app?.Resources.MergedDictionaries ?? Enumerable.Empty<ResourceDictionary>())
-		{
-			if (md.TryGetValue(key, out var o2) && o2 is Style sty2)
-				return sty2;
-		}
-
-		return null;
 	}
 
 	private async Task ReloadAsync()
@@ -125,27 +113,14 @@ public partial class StatsPage : ContentPage
 		}
 	}
 
-	private void OnTabOverview(object? sender, EventArgs e) => ShowTab(0);
-
-	private void OnTabSessions(object? sender, EventArgs e) => ShowTab(1);
-
-	private void OnTabProgress(object? sender, EventArgs e) => ShowTab(2);
-
 	private void ShowTab(int idx)
 	{
 		_tabIndex = idx;
+		if (StatsTabs.SelectedIndex != idx)
+			StatsTabs.SelectedIndex = idx;
 		OverviewPanel.IsVisible = idx == 0;
 		SessionsPanel.IsVisible = idx == 1;
 		ProgressPanel.IsVisible = idx == 2;
-
-		var secondary = LookupButtonStyle("RhythmBtnSecondary");
-		var ghost = LookupButtonStyle("RhythmBtnGhost");
-		if (secondary is null || ghost is null)
-			return;
-
-		TabOverviewBtn.Style = idx == 0 ? secondary : ghost;
-		TabSessionsBtn.Style = idx == 1 ? secondary : ghost;
-		TabProgressBtn.Style = idx == 2 ? secondary : ghost;
 
 		if (idx == 2)
 			InvalidateProgressChart();

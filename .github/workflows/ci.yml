@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Tests
+        run: dotnet test Rhythmo.Shared.Tests/Rhythmo.Shared.Tests.csproj -c Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/**
+          if-no-files-found: ignore
+
+  apk:
+    name: APK Android
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "17"
+
+      - name: Workload MAUI Android
+        run: dotnet workload install maui-android
+
+      - name: Env client
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          url="${SUPABASE_URL:-https://lvmqvylradoimaeckwpj.supabase.co}"
+          key="${SUPABASE_ANON_KEY:-}"
+          if [ -z "$key" ]; then
+            echo "::error::Secret SUPABASE_ANON_KEY manquant. Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          mkdir -p Rhythmo.Mobile/Resources/Raw
+          printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$url" "$key" | tee .env Rhythmo.Mobile/Resources/Raw/supabase.env >/dev/null
+
+      - name: Restore
+        run: dotnet restore Rhythmo.Mobile/Rhythmo.Mobile.csproj
+
+      - name: Publish APK Android
+        run: >
+          dotnet publish Rhythmo.Mobile/Rhythmo.Mobile.csproj
+          -c Release
+          -f net10.0-android
+          --no-restore
+          -p:AndroidPackageFormat=apk
+          -p:EmbedAssembliesIntoApk=true
+
+      - name: Collect APK
+        run: |
+          mkdir -p artifacts
+          find Rhythmo.Mobile -name '*.apk' -print -exec cp {} artifacts/ \;
+          ls -lh artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rhythmo-android
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 14

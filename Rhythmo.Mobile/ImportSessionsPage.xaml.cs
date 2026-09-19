@@ -27,6 +27,7 @@ public partial class ImportSessionsPage : ContentPage
 	public ImportSessionsPage()
 	{
 		InitializeComponent();
+		BackBtn.Clicked += (_, _) => _ = UiShellNavigate.GoAsync("..");
 	}
 
 	protected override async void OnAppearing()
@@ -43,6 +44,7 @@ public partial class ImportSessionsPage : ContentPage
 				.Select(u => new UserPickVm(u.UserId, u.DisplayName))
 				.ToList();
 			UserPicker.ItemsSource = _users;
+			UserPicker.SelectedIndex = -1;
 			if (_users.Count == 0)
 			{
 				SessionsList.ItemsSource = null;

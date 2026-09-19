@@ -155,7 +155,7 @@ public static class RhythmReauthDialog
 
 		void Close(Result result)
 		{
-			DetachOverlay(page, overlay);
+			PageOverlay.Detach(page, overlay);
 			tcs.TrySetResult(result);
 		}
 
@@ -191,7 +191,7 @@ public static class RhythmReauthDialog
 		overlay.Children.Add(scrim);
 		overlay.Children.Add(card);
 
-		if (!AttachOverlay(page, overlay))
+		if (!PageOverlay.Attach(page, overlay))
 		{
 			tcs.TrySetResult(new Result(false, emailEntry.Text?.Trim() ?? "", ""));
 			return tcs.Task;
@@ -209,31 +209,4 @@ public static class RhythmReauthDialog
 		StrokeShape = new RoundRectangle { CornerRadius = 16 },
 		Content = content
 	};
-
-	private static bool AttachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp)
-			return false;
-
-		if (cp.Content is Grid host)
-		{
-			host.Children.Add(overlay);
-			return true;
-		}
-
-		var wrapper = new Grid();
-		if (cp.Content is not null)
-			wrapper.Children.Add(cp.Content);
-		wrapper.Children.Add(overlay);
-		cp.Content = wrapper;
-		return true;
-	}
-
-	private static void DetachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp || cp.Content is not Grid host)
-			return;
-
-		host.Children.Remove(overlay);
-	}
 }

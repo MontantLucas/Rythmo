@@ -11,6 +11,7 @@ internal static class SessionMuscleGlyph
 		var c = (category ?? "").Trim();
 
 		if (c.Contains("Pectoraux", StringComparison.OrdinalIgnoreCase) ||
+		    c.Contains("Bras", StringComparison.OrdinalIgnoreCase) ||
 		    c.Contains("Biceps", StringComparison.OrdinalIgnoreCase) ||
 		    c.Contains("Triceps", StringComparison.OrdinalIgnoreCase))
 			return Chr(0xEB43); // fitness_center
