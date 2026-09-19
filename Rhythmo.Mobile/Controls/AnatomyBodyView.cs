@@ -134,6 +134,7 @@ public sealed class AnatomyBodyView : ContentView
 			ShowGroup(_selectedId);
 		else
 			ShowHint();
+		PaintRobot();
 	}
 
 	private void OnGroupPicked(object? sender, string? groupId)
@@ -171,7 +172,6 @@ public sealed class AnatomyBodyView : ContentView
 		_rankHost.Content = RankBadge.Stacked(g.ValidatedRank);
 		_evalLabel.Text = $"{g.EvaluatedCount}/{g.TotalCount} muscles évalués";
 		_openBtn.IsVisible = true;
-		PaintRobot(g.ValidatedRank);
 	}
 
 	private void ShowHint()
@@ -182,12 +182,12 @@ public sealed class AnatomyBodyView : ContentView
 			? "Touche une zone du robot pour voir le rang du groupe."
 			: "Rang global · touche une zone pour un groupe.";
 		_openBtn.IsVisible = false;
-		PaintRobot(_overallRank);
+		PaintRobot();
 	}
 
-	private void PaintRobot(int? rank)
+	private void PaintRobot()
 	{
-		var file = RankRobot.FileName(rank);
+		var file = RankRobot.FileName(_overallRank, _showBack);
 		if (_robotFile == file)
 			return;
 		_robotFile = file;
@@ -207,6 +207,7 @@ public sealed class AnatomyBodyView : ContentView
 		_viewCaption.Text = _showBack ? "Vue arrière" : "Vue avant";
 		StyleToggle(_frontBtn, !_showBack);
 		StyleToggle(_backBtn, _showBack);
+		PaintRobot();
 	}
 
 	private static Button MakeToggle(string text) => new()
