@@ -73,6 +73,16 @@ public partial class ExerciseRankPage : ContentPage
 				: $"Théorique {RankLabels.Display(rank.TheoreticalRank)}"
 		});
 
+		var adHocBtn = new Button
+		{
+			Text = "À la volée",
+			Style = (Style)Application.Current!.Resources["RhythmBtnGhost"],
+			HorizontalOptions = LayoutOptions.Start
+		};
+		adHocBtn.Clicked += async (_, _) =>
+			await AdHocWorkout.StartOrResumeAsync(this, _exerciseId).ConfigureAwait(true);
+		Root.Children.Add(adHocBtn);
+
 		if (rank?.AvailableQuestRank is { } target && !attemptedToday)
 		{
 			var btn = new Button { Text = $"Lancer la quête R{target}" };

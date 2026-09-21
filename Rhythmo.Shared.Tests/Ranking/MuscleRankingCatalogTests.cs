@@ -40,13 +40,29 @@ public class MuscleRankingCatalogTests
 	public void Bss_and_lunges_are_classifying()
 	{
 		var bss = MuscleRankingCatalog.Find("Jambes — Quadriceps", "Bulgarian split squat")!;
-		Assert.Equal(90, bss.R10Female90);
+		Assert.Equal(140, bss.R10Male70);
+		Assert.Equal(160, bss.R10Male100);
+		Assert.Equal(100, bss.R10Female60);
+		Assert.Equal(120, bss.R10Female90);
 		Assert.Contains(MuscleIds.Quads, bss.PrimaryMuscles);
 		Assert.Contains(MuscleIds.Glutes, bss.PrimaryMuscles);
 
 		var lunges = MuscleRankingCatalog.Find("Ischios / Fessiers", "Fentes marchées")!;
 		Assert.Equal(75, lunges.R10Female90);
 		Assert.Contains(MuscleIds.Quads, lunges.PrimaryMuscles);
+	}
+
+	[Fact]
+	public void Mollets_smith_is_classifying_calves_five_rm()
+	{
+		var smith = MuscleRankingCatalog.Find("Mollets", "Mollets smith")!;
+		Assert.True(smith.IsClassifying);
+		Assert.Equal([MuscleIds.Calves], smith.PrimaryMuscles);
+		Assert.Equal(MeasurementType.FiveRm, smith.MeasurementType);
+		Assert.Equal(131, smith.R10Male70);
+		Assert.Equal(160, smith.R10Male100);
+		Assert.Equal(110, smith.R10Female60);
+		Assert.Equal(128, smith.R10Female90);
 	}
 
 	[Fact]

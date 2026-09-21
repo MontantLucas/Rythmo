@@ -46,18 +46,26 @@ public partial class DashboardPage : ContentPage
 
 	private async Task LoadBodyAsync(IRhythmoRepository repo, Guid profileId)
 	{
+		await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
+
 		try
 		{
 			await ServiceHelper.Services.GetRequiredService<RankQuestService>()
 				.ExpireStaleAsync(profileId).ConfigureAwait(true);
 			await ServiceHelper.Services.GetRequiredService<MuscleRankingService>()
 				.RefreshAsync(profileId).ConfigureAwait(true);
+			await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
 		}
 		catch
 		{
 			// Non bloquant : la home affiche les snapshots déjà persistés.
 		}
 
+		await BindQuestBadgeAsync(repo, profileId).ConfigureAwait(true);
+	}
+
+	private async Task ApplySnapshotsAsync(IRhythmoRepository repo, Guid profileId)
+	{
 		var snaps = await repo.ListGroupRankSnapshotsAsync(profileId, MuscleIds.StandardVersionId)
 			.ConfigureAwait(true);
 		var byId = snaps.ToDictionary(s => s.GroupId);
@@ -78,7 +86,6 @@ public partial class DashboardPage : ContentPage
 		}
 
 		BodyMap.SetGroups(visuals);
-		await BindQuestBadgeAsync(repo, profileId).ConfigureAwait(true);
 	}
 
 	private async Task BindQuestBadgeAsync(IRhythmoRepository repo, Guid profileId)

@@ -39,7 +39,7 @@ public sealed class PersonalRecordService
 			null,
 			DateTime.UtcNow,
 			[new CompletedExerciseSetsDto(exerciseId, [new SetDto(reps, weightKg, 1)])],
-			MinSetsForPr,
+			1,
 			ct);
 
 	private async Task ProcessAsync(
@@ -51,8 +51,10 @@ public sealed class PersonalRecordService
 		int totalFilledSets,
 		CancellationToken ct)
 	{
-		if (totalFilledSets < MinSetsForPr || exercises.Count == 0)
+		if (exercises.Count == 0)
 			return;
+
+		var allowVolumePr = totalFilledSets >= MinSetsForPr;
 
 		foreach (var ex in exercises)
 		{
@@ -131,7 +133,7 @@ public sealed class PersonalRecordService
 					AchievedUtc = achievedUtc
 				};
 			}
-			else if (sessionVol > prev.MaxSessionVolume + 0.01)
+			else if (allowVolumePr && sessionVol > prev.MaxSessionVolume + 0.01)
 			{
 				pr = new PrEventRow
 				{

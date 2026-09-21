@@ -67,7 +67,12 @@ public partial class MusclePage : ContentPage
 				: $"Validé {RankLabels.Code(rank.ValidatedRank)} · théorique {RankLabels.Code(rank.TheoreticalRank)}"
 				  + (rank.AvailableQuestRank is { } q && !attemptedToday ? $" · quête R{q}" : attemptedToday ? " · demain" : "");
 			var id = ex.Id;
-			Root.Children.Add(RankUi.RankCard(ex.NameFr, rank?.ValidatedRank, subtitle, () => _ = RankUi.GoExercise(id)));
+			Root.Children.Add(RankUi.RankCard(
+				ex.NameFr,
+				rank?.ValidatedRank,
+				subtitle,
+				() => _ = RankUi.GoExercise(id),
+				() => _ = AdHocWorkout.StartOrResumeAsync(this, id)));
 		}
 
 		var secondaries = exercises.Where(e =>

@@ -14,6 +14,16 @@ public sealed class AnatomyBodyView : ContentView
 		Aspect = Aspect.AspectFit,
 		HorizontalOptions = LayoutOptions.Fill,
 		VerticalOptions = LayoutOptions.Fill,
+		InputTransparent = true,
+		IsVisible = false
+	};
+	private readonly ActivityIndicator _loader = new()
+	{
+		IsRunning = true,
+		IsVisible = true,
+		Color = RhythmColors.Accent,
+		HorizontalOptions = LayoutOptions.Center,
+		VerticalOptions = LayoutOptions.Center,
 		InputTransparent = true
 	};
 	private readonly Grid _stage = new() { HeightRequest = 340 };
@@ -49,6 +59,7 @@ public sealed class AnatomyBodyView : ContentView
 	private string? _selectedId;
 	private int? _overallRank;
 	private string? _robotFile;
+	private bool _robotReady;
 
 	public event EventHandler<string>? GroupOpened;
 
@@ -72,6 +83,7 @@ public sealed class AnatomyBodyView : ContentView
 		_stage.Children.Add(_robot);
 		_stage.Children.Add(_front);
 		_stage.Children.Add(_back);
+		_stage.Children.Add(_loader);
 
 		_panel = new VerticalStackLayout
 		{
@@ -134,6 +146,10 @@ public sealed class AnatomyBodyView : ContentView
 			ShowGroup(_selectedId);
 		else
 			ShowHint();
+		_robotReady = true;
+		_loader.IsRunning = false;
+		_loader.IsVisible = false;
+		_robot.IsVisible = true;
 		PaintRobot();
 	}
 
@@ -187,6 +203,8 @@ public sealed class AnatomyBodyView : ContentView
 
 	private void PaintRobot()
 	{
+		if (!_robotReady)
+			return;
 		var file = RankRobot.FileName(_overallRank, _showBack);
 		if (_robotFile == file)
 			return;

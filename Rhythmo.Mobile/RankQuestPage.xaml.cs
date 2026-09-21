@@ -396,6 +396,8 @@ public partial class RankQuestPage : ContentPage
 			return;
 		}
 
+		var heaviest = _logged.OrderByDescending(s => s.Kg).ThenByDescending(s => s.Reps).First();
+
 		_settling = true;
 		_timer?.Stop();
 		_attempt.Status = "succeeded";
@@ -420,7 +422,7 @@ public partial class RankQuestPage : ContentPage
 				var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
 				await ServiceHelper.Services.GetRequiredService<PersonalRecordService>()
-					.ProcessQuestSetAsync(repo, profileId, _exerciseId, win.Kg, win.Reps)
+					.ProcessQuestSetAsync(repo, profileId, _exerciseId, heaviest.Kg, heaviest.Reps)
 					.ConfigureAwait(true);
 			}
 			catch
