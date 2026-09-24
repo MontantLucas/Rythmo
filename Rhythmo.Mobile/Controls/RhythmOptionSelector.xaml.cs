@@ -1,6 +1,7 @@
 using System.Collections;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls.Shapes;
+using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Theme;
 
 namespace Rhythmo.Mobile.Controls;
@@ -28,10 +29,22 @@ public partial class RhythmOptionSelector : ContentView
 		false,
 		propertyChanged: OnIsCompactChanged);
 
+	public static readonly BindableProperty TitleProperty = BindableProperty.Create(
+		nameof(Title),
+		typeof(string),
+		typeof(RhythmOptionSelector),
+		"Choisir");
+
+	public static readonly BindableProperty PlaceholderProperty = BindableProperty.Create(
+		nameof(Placeholder),
+		typeof(string),
+		typeof(RhythmOptionSelector),
+		"Choisir…",
+		propertyChanged: OnPlaceholderChanged);
+
 	private bool _suppressSelectionEvent;
 	private Grid? _pageOverlay;
 	private Page? _hostPage;
-	private CollectionView? _overlayOptionsView;
 
 	public event EventHandler? SelectedIndexChanged;
 
@@ -53,6 +66,30 @@ public partial class RhythmOptionSelector : ContentView
 		set => SetValue(IsCompactProperty, value);
 	}
 
+	public string Title
+	{
+		get => (string)GetValue(TitleProperty);
+		set => SetValue(TitleProperty, value);
+	}
+
+	public string Placeholder
+	{
+		get => (string)GetValue(PlaceholderProperty);
+		set => SetValue(PlaceholderProperty, value);
+	}
+
+	public object? SelectedItem
+	{
+		get
+		{
+			var items = ItemsSource;
+			var ix = SelectedIndex;
+			if (items is null || ix < 0 || ix >= items.Count)
+				return null;
+			return items[ix];
+		}
+	}
+
 	public RhythmOptionSelector()
 	{
 		InitializeComponent();
@@ -64,7 +101,12 @@ public partial class RhythmOptionSelector : ContentView
 		if (bindable is not RhythmOptionSelector selector)
 			return;
 
-		void Apply() => selector.RefreshValueLabel();
+		void Apply()
+		{
+			if (selector._pageOverlay is not null)
+				selector.CloseDropdown();
+			selector.RefreshValueLabel();
+		}
 
 		if (MainThread.IsMainThread)
 			Apply();
@@ -98,12 +140,18 @@ public partial class RhythmOptionSelector : ContentView
 			MainThread.BeginInvokeOnMainThread(Apply);
 	}
 
+	private static void OnPlaceholderChanged(BindableObject bindable, object oldValue, object newValue)
+	{
+		if (bindable is RhythmOptionSelector selector)
+			selector.RefreshValueLabel();
+	}
+
 	private void ApplyCompactStyle()
 	{
 		if (IsCompact)
 		{
 			TriggerBorder.Padding = new Thickness(12, 8);
-			TriggerBorder.MinimumHeightRequest = 36;
+			TriggerBorder.MinimumHeightRequest = 40;
 			ValueLabel.FontSize = 13;
 			return;
 		}
@@ -119,11 +167,13 @@ public partial class RhythmOptionSelector : ContentView
 		var ix = SelectedIndex;
 		if (items is null || ix < 0 || ix >= items.Count)
 		{
-			ValueLabel.Text = "";
+			ValueLabel.Text = string.IsNullOrWhiteSpace(Placeholder) ? "Choisir…" : Placeholder;
+			ValueLabel.TextColor = RhythmColors.TextSecondary;
 			return;
 		}
 
 		ValueLabel.Text = items[ix]?.ToString() ?? "";
+		ValueLabel.TextColor = RhythmColors.TextPrimary;
 	}
 
 	private void OnTriggerTapped(object? sender, TappedEventArgs e)
@@ -146,125 +196,148 @@ public partial class RhythmOptionSelector : ContentView
 		if (hostPage is null)
 			return;
 
-		var hostContent = hostPage is ContentPage cp ? cp.Content : null;
-		if (hostContent is null)
-			return;
-
-		hostContent.Measure(hostPage.Width, hostPage.Height);
-		TriggerBorder.Measure(hostPage.Width, hostPage.Height);
-		var bounds = GetBoundsRelativeTo(TriggerBorder, hostContent);
-
-		var left = bounds.X;
-		var width = Math.Max(bounds.Width, 160);
-		var pageHeight = hostContent.Height > 0 ? hostContent.Height : hostPage.Height;
-		var belowTop = bounds.Y + bounds.Height + 8;
-		var spaceBelow = pageHeight - belowTop - 16;
-		var spaceAbove = bounds.Y - 16;
-		const double preferredHeight = 280;
-		var openBelow = spaceBelow >= 140 || spaceBelow >= spaceAbove;
-		var maxHeight = Math.Min(preferredHeight, openBelow ? spaceBelow : spaceAbove);
-		maxHeight = Math.Max(maxHeight, 120);
-		var panelTop = openBelow
-			? belowTop
-			: Math.Max(8, bounds.Y - maxHeight - 8);
-		var listHeight = maxHeight - 8;
-
 		var overlay = new Grid
 		{
 			InputTransparent = false,
-			ZIndex = 100,
+			ZIndex = 220,
 			BackgroundColor = Colors.Transparent
 		};
 
-		var scrim = new BoxView { Color = Colors.Transparent };
+		var scrim = new BoxView { Color = RhythmColors.Overlay };
 		scrim.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(CloseDropdown) });
 
+		var pageHeight = hostPage.Height > 1 ? hostPage.Height : 640;
+		var itemCount = ItemsSource?.Count ?? 0;
+		var estimated = 86 + itemCount * 54;
+		var sheetHeight = Math.Clamp(Math.Min(estimated, pageHeight * 0.58), 200, 480);
 		var panel = new Border
 		{
-			Padding = new Thickness(6, 4),
+			Padding = new Thickness(14, 10, 14, 18),
 			BackgroundColor = RhythmColors.Surface2,
 			StrokeThickness = 0,
-			HeightRequest = maxHeight,
-			WidthRequest = width,
-			HorizontalOptions = LayoutOptions.Start,
-			VerticalOptions = LayoutOptions.Start,
-			Margin = new Thickness(left, panelTop, 0, 0),
-			StrokeShape = new RoundRectangle { CornerRadius = 14 }
+			HorizontalOptions = LayoutOptions.Fill,
+			VerticalOptions = LayoutOptions.End,
+			Margin = new Thickness(10, 0, 10, 18),
+			HeightRequest = sheetHeight,
+			StrokeShape = new RoundRectangle { CornerRadius = 22 }
 		};
 
-		var optionsView = new CollectionView
+		var handle = new BoxView
 		{
-			ItemsSource = ItemsSource,
-			SelectionMode = SelectionMode.Single,
-			HeightRequest = listHeight,
-			VerticalScrollBarVisibility = ScrollBarVisibility.Always
+			Color = RhythmColors.TextSecondary.WithAlpha(0.4f),
+			WidthRequest = 40,
+			HeightRequest = 4,
+			CornerRadius = 2,
+			HorizontalOptions = LayoutOptions.Center,
+			Margin = new Thickness(0, 2, 0, 10)
 		};
-		optionsView.ItemTemplate = CreateOverlayItemTemplate();
-		optionsView.SelectionChanged += OnOverlayOptionSelected;
 
-		panel.Content = optionsView;
+		var header = new Label
+		{
+			Text = string.IsNullOrWhiteSpace(Title) ? "Choisir" : Title,
+			FontFamily = "OpenSansSemibold",
+			FontSize = 16,
+			TextColor = RhythmColors.TextPrimary,
+			Margin = new Thickness(4, 0, 4, 10)
+		};
+
+		var listHost = new VerticalStackLayout { Spacing = 4 };
+		var items = ItemsSource;
+		if (items is not null)
+		{
+			for (var i = 0; i < items.Count; i++)
+			{
+				var index = i;
+				var selected = index == SelectedIndex;
+				listHost.Children.Add(BuildOptionRow(items[i]?.ToString() ?? "", selected, () => SelectIndex(index)));
+			}
+		}
+
+		var scroller = new ScrollView
+		{
+			VerticalScrollBarVisibility = ScrollBarVisibility.Default,
+			Content = listHost
+		};
+
+		var layout = new Grid
+		{
+			RowDefinitions =
+			[
+				new RowDefinition(GridLength.Auto),
+				new RowDefinition(GridLength.Auto),
+				new RowDefinition(GridLength.Star)
+			]
+		};
+		layout.Add(handle, 0, 0);
+		layout.Add(header, 0, 1);
+		layout.Add(scroller, 0, 2);
+		panel.Content = layout;
+
 		overlay.Children.Add(scrim);
 		overlay.Children.Add(panel);
 
-		if (!AttachOverlay(hostPage, overlay))
+		if (!PageOverlay.Attach(hostPage, overlay))
 			return;
 
 		_pageOverlay = overlay;
 		_hostPage = hostPage;
-		_overlayOptionsView = optionsView;
+		ChevronLabel.Text = "▴";
 	}
 
-	private DataTemplate CreateOverlayItemTemplate()
+	private static Border BuildOptionRow(string label, bool selected, Action onTap)
 	{
-		return new DataTemplate(() =>
+		var check = new Label
 		{
-			var label = new Label
-			{
-				FontSize = 15,
-				TextColor = RhythmColors.TextPrimary,
-				LineBreakMode = LineBreakMode.TailTruncation
-			};
-			label.SetBinding(Label.TextProperty, ".");
+			Text = selected ? "✓" : "",
+			FontFamily = "OpenSansSemibold",
+			FontSize = 16,
+			TextColor = RhythmColors.Accent,
+			WidthRequest = 22,
+			VerticalOptions = LayoutOptions.Center
+		};
 
-			var border = new Border
-			{
-				Padding = new Thickness(14, 12),
-				BackgroundColor = Colors.Transparent,
-				StrokeThickness = 0,
-				Content = label
-			};
+		var text = new Label
+		{
+			Text = label,
+			FontSize = 15,
+			FontFamily = selected ? "OpenSansSemibold" : "OpenSansRegular",
+			TextColor = RhythmColors.TextPrimary,
+			LineBreakMode = LineBreakMode.TailTruncation,
+			MaxLines = 1,
+			VerticalOptions = LayoutOptions.Center
+		};
 
-			var tap = new TapGestureRecognizer();
-			tap.Tapped += (_, _) =>
-			{
-				if (border.BindingContext is not null)
-					SelectOverlayItem(border.BindingContext);
-			};
-			border.GestureRecognizers.Add(tap);
-			return border;
-		});
+		var grid = new Grid
+		{
+			ColumnDefinitions =
+			[
+				new ColumnDefinition(GridLength.Star),
+				new ColumnDefinition(GridLength.Auto)
+			],
+			ColumnSpacing = 8
+		};
+		grid.Add(text, 0);
+		grid.Add(check, 1);
+
+		var border = new Border
+		{
+			Padding = new Thickness(14, 13),
+			BackgroundColor = selected ? Color.FromArgb("#2622D3C5") : RhythmColors.Surface1,
+			StrokeThickness = 0,
+			StrokeShape = new RoundRectangle { CornerRadius = 14 },
+			Content = grid
+		};
+		border.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(onTap) });
+		return border;
 	}
 
-	private void SelectOverlayItem(object selected)
+	private void SelectIndex(int ix)
 	{
 		if (_suppressSelectionEvent)
 			return;
 
 		var items = ItemsSource;
-		if (items is null)
-			return;
-
-		var ix = -1;
-		for (var i = 0; i < items.Count; i++)
-		{
-			if (Equals(items[i], selected))
-			{
-				ix = i;
-				break;
-			}
-		}
-
-		if (ix < 0)
+		if (items is null || ix < 0 || ix >= items.Count)
 			return;
 
 		_suppressSelectionEvent = true;
@@ -281,61 +354,15 @@ public partial class RhythmOptionSelector : ContentView
 		SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
 	}
 
-	private void OnOverlayOptionSelected(object? sender, SelectionChangedEventArgs e)
-	{
-		if (_suppressSelectionEvent || e.CurrentSelection.Count == 0)
-			return;
-
-		var selected = e.CurrentSelection[0];
-		if (selected is null)
-			return;
-
-		SelectOverlayItem(selected);
-	}
-
 	public void CloseDropdown()
 	{
-		if (_overlayOptionsView is not null)
-		{
-			_overlayOptionsView.SelectionChanged -= OnOverlayOptionSelected;
-			_overlayOptionsView = null;
-		}
-
 		if (_hostPage is not null && _pageOverlay is not null)
-			DetachOverlay(_hostPage, _pageOverlay);
+			PageOverlay.Detach(_hostPage, _pageOverlay);
 
 		_pageOverlay = null;
 		_hostPage = null;
-	}
-
-	private static Rect GetBoundsRelativeTo(VisualElement element, VisualElement root)
-	{
-		var bounds = element.Bounds;
-		ScrollView? scrollView = null;
-		var current = element.Parent as VisualElement;
-		while (current is not null && current != root)
-		{
-			if (current is ScrollView sv)
-				scrollView = sv;
-
-			bounds = new Rect(
-				bounds.X + current.X,
-				bounds.Y + current.Y,
-				bounds.Width,
-				bounds.Height);
-			current = current.Parent as VisualElement;
-		}
-
-		if (scrollView is not null)
-		{
-			bounds = new Rect(
-				bounds.X - scrollView.ScrollX,
-				bounds.Y - scrollView.ScrollY,
-				bounds.Width,
-				bounds.Height);
-		}
-
-		return bounds;
+		if (ChevronLabel is not null)
+			ChevronLabel.Text = "▾";
 	}
 
 	private static Page? FindHostPage(Element? start)
@@ -350,31 +377,5 @@ public partial class RhythmOptionSelector : ContentView
 		}
 
 		return Shell.Current?.CurrentPage;
-	}
-
-	private static bool AttachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp || cp.Content is not View content)
-			return false;
-
-		if (content is Grid host)
-		{
-			host.Children.Add(overlay);
-			return true;
-		}
-
-		var wrapper = new Grid();
-		wrapper.Children.Add(content);
-		wrapper.Children.Add(overlay);
-		cp.Content = wrapper;
-		return true;
-	}
-
-	private static void DetachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp || cp.Content is not Grid host)
-			return;
-
-		host.Children.Remove(overlay);
 	}
 }

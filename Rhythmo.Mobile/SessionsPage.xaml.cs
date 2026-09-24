@@ -19,10 +19,13 @@ public partial class SessionsPage : ContentPage
 	private Guid? _sheetSessionId;
 
 	private bool _fabExpanded;
+	private CatalogPage? _catalogPage;
 
 	public SessionsPage()
 	{
 		InitializeComponent();
+		HubTabs.SetItems(["Mes séances", "Exercices"]);
+		HubTabs.SelectedIndexChanged += OnHubTabChanged;
 		SessionsRefresh.Refreshing += async (_, _) =>
 		{
 			await ReloadAsync().ConfigureAwait(true);
@@ -33,77 +36,120 @@ public partial class SessionsPage : ContentPage
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		if (HubTabs.SelectedIndex == 1 && _catalogPage is not null)
+			await _catalogPage.AppearAsync().ConfigureAwait(true);
+		else
+			await ReloadAsync().ConfigureAwait(true);
+	}
+
+	private async void OnHubTabChanged(object? sender, int index) =>
+		await ShowHubAsync(index).ConfigureAwait(true);
+
+	private async Task ShowHubAsync(int index)
+	{
+		var catalog = index == 1;
+		SessionsPane.IsVisible = !catalog;
+		CatalogHost.IsVisible = catalog;
+		FabColumn.IsVisible = !catalog;
+		if (!catalog)
+		{
+			_fabExpanded = false;
+			FabMenuPanel.IsVisible = false;
+			await ReloadAsync().ConfigureAwait(true);
+			return;
+		}
+
+		if (_catalogPage is null)
+		{
+			_catalogPage = new CatalogPage();
+			_catalogPage.SetEmbedded(true);
+			if (_catalogPage.Content is View body)
+			{
+				_catalogPage.Content = new ContentView();
+				CatalogHost.Content = body;
+			}
+		}
+
+		await _catalogPage.AppearAsync().ConfigureAwait(true);
 	}
 
 	private async Task ReloadAsync()
 	{
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-			var tpls = await repo.ListSessionTemplatesAsync(activeProfileId).ConfigureAwait(true);
-			var ids = tpls.Select(t => t.Id).ToList();
-			var allExercises = await repo.ListExercisesAsync().ConfigureAwait(true);
-			var cats = allExercises.ToDictionary(e => e.Id, e => e.Category);
-
-			var sessionMeta = await Task.WhenAll(ids.Select(async id =>
+			await auth.TryWithSessionRetryAsync(async ct =>
 			{
-				var sessLines = await repo.ListSessionExercisesAsync(id).ConfigureAwait(false);
-				var snap = await repo.GetSessionSnapshotAsync(id).ConfigureAwait(false);
-				return (id, sessLines, snap?.Json);
-			})).ConfigureAwait(false);
-
-			await MainThread.InvokeOnMainThreadAsync(() =>
-			{
-				var lines = new List<SessionExerciseRow>();
-				var countsBySession = new Dictionary<Guid, int>();
-				var snaps = new Dictionary<Guid, string>();
-				foreach (var (id, sessLines, snapJson) in sessionMeta)
-				{
-					lines.AddRange(sessLines);
-					countsBySession[id] = sessLines.Count;
-					if (snapJson is not null)
-						snaps[id] = snapJson;
-				}
-
-				_allCards.Clear();
-				foreach (var t in tpls)
-				{
-					var sessLines = lines.Where(l => l.SessionId == t.Id).ToList();
-					var tags = sessLines
-						.Select(l => cats.TryGetValue(l.ExerciseId, out var c) ? c : null)
-						.Where(x => !string.IsNullOrWhiteSpace(x))
-						.Distinct(StringComparer.OrdinalIgnoreCase)
-						.Take(4)
-						.Cast<string>()
-						.ToList();
-
-					var chipTags = tags.Count > 0 ? string.Join(" · ", tags) : "Mixte";
-
-					countsBySession.TryGetValue(t.Id, out var exCount);
-					var estMin = sessLines.Sum(l => l.TargetSets) * 2.5;
-					var volKg = snaps.TryGetValue(t.Id, out var js)
-						? WorkoutAnalytics.ComputeVolumeKgFromSessionSnapshot(js)
-						: 0;
-					var volStr = volKg > double.Epsilon
-						? $"Vol. dernier · {(volKg >= 1000 ? $"{volKg / 1000d:0.#} t" : $"{volKg:0} kg")}"
-						: "Pas encore de volume sur cette séance";
-
-					var meta =
-						$"{exCount} ex. · ~{Math.Max(1, (int)Math.Round(estMin))} min · {volStr} · MAJ {t.UpdatedUtc.ToLocalTime():d}";
-
-					_allCards.Add(new SessionCardVm(t.Id, t.Title, chipTags, meta));
-				}
-
-				ApplySearchFilter();
-			}).ConfigureAwait(false);
+				await ReloadCoreAsync().ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
 		}
+	}
+
+	private async Task ReloadCoreAsync()
+	{
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+		var tpls = await repo.ListSessionTemplatesAsync(activeProfileId).ConfigureAwait(false);
+		var ids = tpls.Select(t => t.Id).ToList();
+		var allExercises = await repo.ListExercisesAsync().ConfigureAwait(false);
+		var cats = allExercises.ToDictionary(e => e.Id, e => e.Category);
+
+		var sessionMeta = await Task.WhenAll(ids.Select(async id =>
+		{
+			var sessLines = await repo.ListSessionExercisesAsync(id).ConfigureAwait(false);
+			var snap = await repo.GetSessionSnapshotAsync(id).ConfigureAwait(false);
+			return (id, sessLines, snap?.Json);
+		})).ConfigureAwait(false);
+
+		await MainThread.InvokeOnMainThreadAsync(() =>
+		{
+			var lines = new List<SessionExerciseRow>();
+			var countsBySession = new Dictionary<Guid, int>();
+			var snaps = new Dictionary<Guid, string>();
+			foreach (var (id, sessLines, snapJson) in sessionMeta)
+			{
+				lines.AddRange(sessLines);
+				countsBySession[id] = sessLines.Count;
+				if (snapJson is not null)
+					snaps[id] = snapJson;
+			}
+
+			_allCards.Clear();
+			foreach (var t in tpls)
+			{
+				var sessLines = lines.Where(l => l.SessionId == t.Id).ToList();
+				var tags = sessLines
+					.Select(l => cats.TryGetValue(l.ExerciseId, out var c) ? c : null)
+					.Where(x => !string.IsNullOrWhiteSpace(x))
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.Take(4)
+					.Cast<string>()
+					.ToList();
+
+				var chipTags = tags.Count > 0 ? string.Join(" · ", tags) : "Mixte";
+
+				countsBySession.TryGetValue(t.Id, out var exCount);
+				var estMin = sessLines.Sum(l => l.TargetSets) * 2.5;
+				var volKg = snaps.TryGetValue(t.Id, out var js)
+					? WorkoutAnalytics.ComputeVolumeKgFromSessionSnapshot(js)
+					: 0;
+				var volStr = volKg > double.Epsilon
+					? $"Vol. dernier · {(volKg >= 1000 ? $"{volKg / 1000d:0.#} t" : $"{volKg:0} kg")}"
+					: "Pas encore de volume sur cette séance";
+
+				var meta =
+					$"{exCount} ex. · ~{Math.Max(1, (int)Math.Round(estMin))} min · {volStr} · MAJ {t.UpdatedUtc.ToLocalTime():d}";
+
+				_allCards.Add(new SessionCardVm(t.Id, t.Title, chipTags, meta));
+			}
+
+			ApplySearchFilter();
+		}).ConfigureAwait(false);
 	}
 
 	private void ApplySearchFilter()
@@ -155,6 +201,20 @@ public partial class SessionsPage : ContentPage
 		await UiShellNavigate.GoAsync($"{nameof(SessionEditPage)}").ConfigureAwait(false);
 	}
 
+	private async void OnFabAdHoc(object? sender, EventArgs e)
+	{
+		_fabExpanded = false;
+		FabMenuPanel.IsVisible = false;
+		try
+		{
+			await AdHocWorkout.StartOrResumeAsync(this).ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			await _dev.TryShowSafeAsync(ex, nameof(OnFabAdHoc)).ConfigureAwait(false);
+		}
+	}
+
 	private async void OnFabQuickStart(object? sender, EventArgs e)
 	{
 		_fabExpanded = false;
@@ -186,13 +246,6 @@ public partial class SessionsPage : ContentPage
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(OnFabQuickStart)).ConfigureAwait(false);
 		}
-	}
-
-	private async void OnFabOpenCatalog(object? sender, EventArgs e)
-	{
-		_fabExpanded = false;
-		FabMenuPanel.IsVisible = false;
-		await UiShellNavigate.GoAsync("//CatalogPage").ConfigureAwait(false);
 	}
 
 	private async void OnFabImport(object? sender, EventArgs e)

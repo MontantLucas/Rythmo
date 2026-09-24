@@ -1,10 +1,9 @@
-using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui.Controls.Shapes;
-using Rhythmo.Mobile.Data;
+using Rhythmo.Mobile.Controls.Anatomy;
 using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Services;
 using Rhythmo.Mobile.Theme;
+using Rhythmo.Shared.Ranking;
 
 namespace Rhythmo.Mobile;
 
@@ -13,11 +12,10 @@ public partial class DashboardPage : ContentPage
 	private readonly IDevErrorPresenter _dev =
 		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
 
-	private Guid? _nextSessionId;
-
 	public DashboardPage()
 	{
 		InitializeComponent();
+		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
 		DashRefresh.Refreshing += async (_, _) =>
 		{
 			await ReloadAsync().ConfigureAwait(true);
@@ -29,101 +27,21 @@ public partial class DashboardPage : ContentPage
 	{
 		base.OnAppearing();
 		UiNavigation.RunBootstrapInBackground();
+		await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(true);
 		await ReloadAsync().ConfigureAwait(true);
 	}
 
 	private async Task ReloadAsync()
 	{
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-			var profile = await repo.GetProfileAsync(profileId).ConfigureAwait(true)
-			              ?? throw new InvalidOperationException("Profil introuvable.");
-
-			GreetingLabel.Text =
-				DateTime.Now.Hour < 18 ? $"Bonjour {profile.DisplayName}" : $"Bonsoir {profile.DisplayName}";
-
-			var tpls = await repo.ListSessionTemplatesAsync(profileId).ConfigureAwait(true);
-
-			if (tpls.Count > 0)
+			await auth.TryWithSessionRetryAsync(async ct =>
 			{
-				var next = tpls[0];
-				_nextSessionId = next.Id;
-				NextSessionTitleLabel.Text = next.Title;
-				var exCount = await repo.CountSessionExercisesAsync(next.Id).ConfigureAwait(true);
-				NextSessionMetaLabel.Text =
-					$"{exCount} exercice(s) · MAJ {next.UpdatedUtc.ToLocalTime():d}";
-				StartSessionBtn.IsEnabled = exCount > 0;
-			}
-			else
-			{
-				_nextSessionId = null;
-				NextSessionTitleLabel.Text = "Aucune séance encore";
-				NextSessionMetaLabel.Text = "Crée ta première séance pour démarrer.";
-				StartSessionBtn.IsEnabled = false;
-			}
-
-			var cutoff = DateTime.UtcNow.AddDays(-7);
-			var recentWorkouts = await repo.ListCompletedWorkoutsSinceAsync(profileId, cutoff)
-				.ConfigureAwait(true);
-
-			StatSessionsLabel.Text = recentWorkouts.Count.ToString(CultureInfo.InvariantCulture);
-			double volKg = recentWorkouts.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
-			StatVolumeLabel.Text = volKg >= 1000
-				? $"{volKg / 1000d:0.#} t"
-				: $"{volKg:0} kg";
-			StatKcalLabel.Text =
-				Math.Round(recentWorkouts.Sum(w => w.CaloriesRounded)).ToString(CultureInfo.InvariantCulture);
-
-			var workoutDays = recentWorkouts
-				.Select(w => w.CompletedUtc.ToLocalTime().Date)
-				.ToHashSet();
-			var streak = ComputeDayStreak(workoutDays);
-			StreakLabel.Text = streak <= 0
-				? "À construire cette semaine"
-				: $"{streak} jour(s) avec séance";
-
-			RecentHistoryHost.Children.Clear();
-			foreach (var row in recentWorkouts.Take(3))
-			{
-				var card = new Border
-				{
-					Padding = new Thickness(16, 14),
-					BackgroundColor = RhythmColors.Surface1,
-					StrokeThickness = 0,
-					StrokeShape = new RoundRectangle { CornerRadius = 16 },
-					Content = new VerticalStackLayout
-					{
-						Spacing = 4,
-						Children =
-						{
-							new Label
-							{
-								Text = row.SessionTitle,
-								FontFamily = "OpenSansSemibold",
-								FontSize = 16,
-								TextColor = RhythmColors.TextPrimary,
-								LineBreakMode = LineBreakMode.TailTruncation
-							},
-							new Label
-							{
-								Text = WorkoutHistoryFormatter.BuildListSubtitle(row),
-								FontSize = 13,
-								TextColor = RhythmColors.TextSecondary
-							}
-						}
-					}
-				};
-				var tap = new TapGestureRecognizer();
-				var wid = row.Id;
-				tap.Tapped += async (_, _) =>
-					await UiShellNavigate.GoAsync(
-						$"{nameof(HistoryDetailPage)}?WorkoutId={Uri.EscapeDataString(wid.ToString())}");
-				card.GestureRecognizers.Add(tap);
-				RecentHistoryHost.Children.Add(card);
-			}
+				var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+				await LoadBodyAsync(repo, profileId).ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
@@ -131,36 +49,71 @@ public partial class DashboardPage : ContentPage
 		}
 	}
 
-	private static int ComputeDayStreak(HashSet<DateTime> workoutDays)
+	private async Task LoadBodyAsync(IRhythmoRepository repo, Guid profileId)
 	{
-		var cursor = DateTime.Today;
-		if (!workoutDays.Contains(cursor))
-			cursor = cursor.AddDays(-1);
+		await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
 
-		var streak = 0;
-		while (workoutDays.Contains(cursor))
+		var finalize = ServiceHelper.Services.GetRequiredService<WorkoutFinalizeService>();
+		var ranking = ServiceHelper.Services.GetRequiredService<MuscleRankingService>();
+		var ranksAreFresh = ranking.LastRefreshUtc != default
+			&& DateTime.UtcNow - ranking.LastRefreshUtc < TimeSpan.FromSeconds(25);
+		if (!finalize.IsBusy && !ranksAreFresh)
 		{
-			streak++;
-			cursor = cursor.AddDays(-1);
+			try
+			{
+				await ServiceHelper.Services.GetRequiredService<RankQuestService>()
+					.ExpireStaleAsync(profileId).ConfigureAwait(true);
+				await ranking.RefreshAsync(profileId).ConfigureAwait(true);
+				await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
+			}
+			catch
+			{
+				// Non bloquant : la home affiche les snapshots déjà persistés.
+			}
 		}
 
-		return streak;
+		await BindQuestBadgeAsync(repo, profileId).ConfigureAwait(true);
 	}
 
-	private async void OnStartNextClicked(object? sender, EventArgs e)
+	private async Task ApplySnapshotsAsync(IRhythmoRepository repo, Guid profileId)
 	{
-		if (_nextSessionId is not { } id)
-			return;
-		await UiShellNavigate.GoAsync($"{nameof(WorkoutRunnerPage)}?SessionId={Uri.EscapeDataString(id.ToString())}")
-			.ConfigureAwait(false);
+		var snaps = await repo.ListGroupRankSnapshotsAsync(profileId, MuscleIds.StandardVersionId)
+			.ConfigureAwait(true);
+		var byId = snaps.ToDictionary(s => s.GroupId);
+
+		var visuals = new List<BodyGroupVisual>(MuscleIds.Groups.Count);
+		foreach (var group in MuscleIds.Groups)
+		{
+			byId.TryGetValue(group.Id, out var snap);
+			var total = snap?.TotalCount > 0
+				? snap.TotalCount
+				: MuscleIds.Muscles.Count(m => m.GroupId == group.Id);
+			visuals.Add(new BodyGroupVisual(
+				group.Id,
+				group.NameFr,
+				snap?.ValidatedRank,
+				snap?.EvaluatedCount ?? 0,
+				total));
+		}
+
+		BodyMap.SetGroups(visuals);
 	}
 
-	private async void OnGoSessionsClicked(object? sender, EventArgs e) =>
-		await UiShellNavigate.GoAsync("//SessionsPage").ConfigureAwait(false);
+	private async Task BindQuestBadgeAsync(IRhythmoRepository repo, Guid profileId)
+	{
+		var ranks = await repo.ListProfileExerciseRanksAsync(profileId).ConfigureAwait(true);
+		var attempts = await repo.ListQuestAttemptsAsync(profileId).ConfigureAwait(true);
+		var today = DateOnly.FromDateTime(DateTime.Now);
+		var count = ranks.Count(r =>
+			r.AvailableQuestRank is not null &&
+			!attempts.Any(a => a.ExerciseId == r.ExerciseId && a.LocalDate == today));
+		QuestCountBadge.IsVisible = count > 0;
+		QuestCountLabel.Text = count.ToString();
+	}
 
-	private async void OnGoStatsClicked(object? sender, EventArgs e) =>
-		await UiShellNavigate.GoAsync("//StatsPage").ConfigureAwait(false);
+	private async void OnGoQuestsClicked(object? sender, EventArgs e) =>
+		await UiShellNavigate.GoAsync(nameof(RankQuestsPage)).ConfigureAwait(false);
 
-	private async void OnQuickNewSessionClicked(object? sender, EventArgs e) =>
-		await UiShellNavigate.GoAsync($"{nameof(SessionEditPage)}").ConfigureAwait(false);
+	private async void OnGroupOpened(object? sender, string groupId) =>
+		await RankUi.GoGroup(groupId).ConfigureAwait(false);
 }

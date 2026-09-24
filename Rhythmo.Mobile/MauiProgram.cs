@@ -39,7 +39,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDevErrorPresenter, DevPopupErrorPresenter>();
 		builder.Services.AddSingleton<SocialHubService>();
 		builder.Services.AddSingleton<PersonalRecordService>();
+		builder.Services.AddSingleton<MuscleRankingService>();
+		builder.Services.AddSingleton<RankQuestService>();
 		builder.Services.AddSingleton<WorkoutDraftStore>();
+		builder.Services.AddSingleton<WorkoutFinalizeService>();
 		builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

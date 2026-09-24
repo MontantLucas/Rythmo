@@ -29,8 +29,11 @@ public partial class StatsPage : ContentPage
 	public StatsPage()
 	{
 		InitializeComponent();
+		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
 		ProgressChart.Drawable = _progressDrawable;
+		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
+		StatsTabs.SelectedIndexChanged += (_, idx) => ShowTab(idx);
 
 		StatsRefresh.Refreshing += async (_, _) =>
 		{
@@ -47,59 +50,54 @@ public partial class StatsPage : ContentPage
 		await ReloadAsync().ConfigureAwait(true);
 	}
 
-	private static Style? LookupButtonStyle(string key)
-	{
-		var app = Application.Current;
-		if (app?.Resources.TryGetValue(key, out var o) == true && o is Style sty)
-			return sty;
-		foreach (var md in app?.Resources.MergedDictionaries ?? Enumerable.Empty<ResourceDictionary>())
-		{
-			if (md.TryGetValue(key, out var o2) && o2 is Style sty2)
-				return sty2;
-		}
-
-		return null;
-	}
-
 	private async Task ReloadAsync()
 	{
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId =
-				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-			var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
-
-			var overview = await Task.Run(() =>
+			await auth.TryWithSessionRetryAsync(async ct =>
 			{
-				double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
-				var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
-				var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
-				var ui = hist.Select(c =>
-					new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
-				return (
-					VolText: volText,
-					CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-					KcalText: kcal,
-					Rows: ui);
-			}).ConfigureAwait(false);
-
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				OverviewVolumeLabel.Text = overview.VolText;
-				OverviewCountLabel.Text = overview.CountText;
-				OverviewKcalLabel.Text = overview.KcalText;
-				HistoryList.ItemsSource = overview.Rows;
-				HistoryList.SelectedItem = null;
-
-				await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
-			}).ConfigureAwait(false);
+				await ReloadCoreAsync().ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
 		}
+	}
+
+	private async Task ReloadCoreAsync()
+	{
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var profileId =
+			ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+		var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
+
+		var overview = await Task.Run(() =>
+		{
+			double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
+			var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
+			var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
+			var ui = hist.Select(c =>
+				new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
+			return (
+				VolText: volText,
+				CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+				KcalText: kcal,
+				Rows: ui);
+		}).ConfigureAwait(false);
+
+		await MainThread.InvokeOnMainThreadAsync(async () =>
+		{
+			OverviewVolumeLabel.Text = overview.VolText;
+			OverviewCountLabel.Text = overview.CountText;
+			OverviewKcalLabel.Text = overview.KcalText;
+			HistoryList.ItemsSource = overview.Rows;
+			HistoryList.SelectedItem = null;
+
+			await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
+		}).ConfigureAwait(false);
 	}
 
 	private async void HistoryListOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -125,27 +123,14 @@ public partial class StatsPage : ContentPage
 		}
 	}
 
-	private void OnTabOverview(object? sender, EventArgs e) => ShowTab(0);
-
-	private void OnTabSessions(object? sender, EventArgs e) => ShowTab(1);
-
-	private void OnTabProgress(object? sender, EventArgs e) => ShowTab(2);
-
 	private void ShowTab(int idx)
 	{
 		_tabIndex = idx;
+		if (StatsTabs.SelectedIndex != idx)
+			StatsTabs.SelectedIndex = idx;
 		OverviewPanel.IsVisible = idx == 0;
 		SessionsPanel.IsVisible = idx == 1;
 		ProgressPanel.IsVisible = idx == 2;
-
-		var secondary = LookupButtonStyle("RhythmBtnSecondary");
-		var ghost = LookupButtonStyle("RhythmBtnGhost");
-		if (secondary is null || ghost is null)
-			return;
-
-		TabOverviewBtn.Style = idx == 0 ? secondary : ghost;
-		TabSessionsBtn.Style = idx == 1 ? secondary : ghost;
-		TabProgressBtn.Style = idx == 2 ? secondary : ghost;
 
 		if (idx == 2)
 			InvalidateProgressChart();

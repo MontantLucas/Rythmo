@@ -104,3 +104,59 @@ public sealed class PrEventRow
 	public Guid? CompletedWorkoutId { get; set; }
 	public DateTime AchievedUtc { get; set; }
 }
+
+public sealed class ProfileExerciseRankRow
+{
+	public Guid ProfileId { get; set; }
+	public Guid ExerciseId { get; set; }
+	public double TheoreticalRaw { get; set; }
+	public int? TheoreticalRank { get; set; }
+	public int? ValidatedRank { get; set; }
+	public bool HasSuccessfulValidation { get; set; }
+	public int? CalibrationFloor { get; set; }
+	public int? AvailableQuestRank { get; set; }
+	public DateTime? QuestUnlockedUtc { get; set; }
+	public double? BodyweightKgAtCompute { get; set; }
+	public int? SexAtCompute { get; set; }
+	public double? R10Used { get; set; }
+	public string? StandardVersionId { get; set; }
+	public DateTime UpdatedUtc { get; set; }
+}
+
+public sealed class MuscleRankSnapshotRow
+{
+	public Guid ProfileId { get; set; }
+	public string MuscleId { get; set; } = "";
+	public string StandardVersionId { get; set; } = "";
+	public int? ValidatedRank { get; set; }
+	public int? TheoreticalRank { get; set; }
+	public int EvaluatedCount { get; set; }
+	public DateTime UpdatedUtc { get; set; }
+}
+
+public sealed class GroupRankSnapshotRow
+{
+	public Guid ProfileId { get; set; }
+	public string GroupId { get; set; } = "";
+	public string StandardVersionId { get; set; } = "";
+	public double? ValidatedRaw { get; set; }
+	public int? ValidatedRank { get; set; }
+	public int EvaluatedCount { get; set; }
+	public int TotalCount { get; set; }
+	public DateTime UpdatedUtc { get; set; }
+}
+
+public sealed class RankQuestAttemptRow
+{
+	public Guid Id { get; set; }
+	public Guid ProfileId { get; set; }
+	public Guid ExerciseId { get; set; }
+	public int TargetRank { get; set; }
+	public DateTime StartedUtc { get; set; }
+	public DateTime ExpiresUtc { get; set; }
+	public DateOnly LocalDate { get; set; }
+	public string Status { get; set; } = "in_progress";
+	public double? WeightKg { get; set; }
+	public int? Reps { get; set; }
+	public string? StandardVersionId { get; set; }
+}

@@ -19,6 +19,9 @@ public partial class FriendsPage : ContentPage
 	public FriendsPage()
 	{
 		InitializeComponent();
+		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
+		HubTabs.SetItems(["Amis", "Classement"]);
+		HubTabs.SelectedIndexChanged += (_, idx) => ShowHub(idx);
 		FriendsRefresh.Refreshing += async (_, _) =>
 		{
 			_hub.InvalidateCache();
@@ -36,15 +39,19 @@ public partial class FriendsPage : ContentPage
 	private async Task ReloadAsync()
 	{
 		var generation = Interlocked.Increment(ref _reloadGeneration);
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-			var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(true);
-			if (generation != _reloadGeneration)
-				return;
+			await auth.TryWithSessionRetryAsync(async ct =>
+			{
+				var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+				var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(false);
+				if (generation != _reloadGeneration)
+					return;
 
-			_snapshot = snapshot;
-			await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(true);
+				_snapshot = snapshot;
+				await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
@@ -62,7 +69,8 @@ public partial class FriendsPage : ContentPage
 			BuildPeriodTabs(),
 			_snapshot.SessionLeaderboard,
 			_snapshot.VolumeLeaderboard,
-			ShowProfileNameAsync);
+			ShowProfileNameAsync,
+			showHeading: false);
 
 		PrSectionHeaderHost.Content = FriendsHubUi.SectionHeader(
 			"Nouveaux PR",
@@ -89,6 +97,14 @@ public partial class FriendsPage : ContentPage
 		BadgesHost.Content = _snapshot.Badges.Count == 0
 			? FriendsHubUi.EmptyHint("Badges — continue à t'entraîner.")
 			: FriendsHubUi.BadgesCarousel(_snapshot.Badges);
+
+		ShowHub(HubTabs.SelectedIndex);
+	}
+
+	private void ShowHub(int index)
+	{
+		AmisScroll.IsVisible = index == 0;
+		RankScroll.IsVisible = index == 1;
 	}
 
 	private IReadOnlyList<View> BuildPeriodTabs() =>
