@@ -4,7 +4,7 @@ using Rhythmo.Shared.Ranking;
 
 namespace Rhythmo.Mobile.Infrastructure;
 
-internal sealed record QuestUnlockItem(
+public sealed record QuestUnlockItem(
 	Guid ExerciseId,
 	string NameFr,
 	int TargetRank,

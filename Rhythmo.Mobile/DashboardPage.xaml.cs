@@ -15,6 +15,7 @@ public partial class DashboardPage : ContentPage
 	public DashboardPage()
 	{
 		InitializeComponent();
+		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
 		DashRefresh.Refreshing += async (_, _) =>
 		{
 			await ReloadAsync().ConfigureAwait(true);
@@ -32,11 +33,15 @@ public partial class DashboardPage : ContentPage
 
 	private async Task ReloadAsync()
 	{
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-			await LoadBodyAsync(repo, profileId).ConfigureAwait(true);
+			await auth.TryWithSessionRetryAsync(async ct =>
+			{
+				var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+				await LoadBodyAsync(repo, profileId).ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
@@ -48,17 +53,23 @@ public partial class DashboardPage : ContentPage
 	{
 		await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
 
-		try
+		var finalize = ServiceHelper.Services.GetRequiredService<WorkoutFinalizeService>();
+		var ranking = ServiceHelper.Services.GetRequiredService<MuscleRankingService>();
+		var ranksAreFresh = ranking.LastRefreshUtc != default
+			&& DateTime.UtcNow - ranking.LastRefreshUtc < TimeSpan.FromSeconds(25);
+		if (!finalize.IsBusy && !ranksAreFresh)
 		{
-			await ServiceHelper.Services.GetRequiredService<RankQuestService>()
-				.ExpireStaleAsync(profileId).ConfigureAwait(true);
-			await ServiceHelper.Services.GetRequiredService<MuscleRankingService>()
-				.RefreshAsync(profileId).ConfigureAwait(true);
-			await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
-		}
-		catch
-		{
-			// Non bloquant : la home affiche les snapshots déjà persistés.
+			try
+			{
+				await ServiceHelper.Services.GetRequiredService<RankQuestService>()
+					.ExpireStaleAsync(profileId).ConfigureAwait(true);
+				await ranking.RefreshAsync(profileId).ConfigureAwait(true);
+				await ApplySnapshotsAsync(repo, profileId).ConfigureAwait(true);
+			}
+			catch
+			{
+				// Non bloquant : la home affiche les snapshots déjà persistés.
+			}
 		}
 
 		await BindQuestBadgeAsync(repo, profileId).ConfigureAwait(true);

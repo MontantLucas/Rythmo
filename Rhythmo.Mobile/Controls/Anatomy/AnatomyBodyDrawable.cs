@@ -1,3 +1,4 @@
+using Microsoft.Maui.Graphics;
 using Rhythmo.Mobile.Theme;
 
 namespace Rhythmo.Mobile.Controls.Anatomy;
@@ -12,6 +13,9 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 	public string? SelectedGroupId { get; set; }
 	public string? HoveredGroupId { get; set; }
 
+	/// <summary>Robot dessiné dans le canvas (obligatoire sur Windows : le GraphicsView y est opaque).</summary>
+	public Microsoft.Maui.Graphics.IImage? RobotImage { get; set; }
+
 	public void Draw(ICanvas canvas, RectF dirtyRect)
 	{
 		if (dirtyRect.Width < 1f || dirtyRect.Height < 1f)
@@ -21,12 +25,15 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 		try
 		{
 			canvas.Antialias = true;
-			canvas.FillColor = Colors.Transparent;
+			canvas.FillColor = RhythmColors.Bg;
 			canvas.FillRectangle(dirtyRect);
 
 			var (scale, ox, oy) = Fit(dirtyRect.Width, dirtyRect.Height);
 			canvas.Translate(ox, oy);
 			canvas.Scale(scale, scale);
+
+			if (RobotImage is not null)
+				canvas.DrawImage(RobotImage, 0, 0, AnatomyGeometry.W, AnatomyGeometry.H);
 
 			foreach (var region in AnatomyGeometry.For(Kind))
 				DrawRegion(canvas, region);

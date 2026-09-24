@@ -13,7 +13,35 @@ public sealed record RankingRefreshResult(IReadOnlyList<NewlyUnlockedQuest> Unlo
 
 public sealed class MuscleRankingService(IRhythmoRepository repo)
 {
+	private readonly SemaphoreSlim _refreshGate = new(1, 1);
+	private long _lastRefreshTicks;
+
+	/// <summary>Dernier recalcul terminé. Sert à ne pas relancer le même travail juste après une séance.</summary>
+	public DateTime LastRefreshUtc
+	{
+		get
+		{
+			var ticks = Interlocked.Read(ref _lastRefreshTicks);
+			return ticks == 0 ? default : new DateTime(ticks, DateTimeKind.Utc);
+		}
+	}
+
 	public async Task<RankingRefreshResult> RefreshAsync(Guid profileId, CancellationToken ct = default)
+	{
+		await _refreshGate.WaitAsync(ct).ConfigureAwait(false);
+		try
+		{
+			var result = await RefreshCoreAsync(profileId, ct).ConfigureAwait(false);
+			Interlocked.Exchange(ref _lastRefreshTicks, DateTime.UtcNow.Ticks);
+			return result;
+		}
+		finally
+		{
+			_refreshGate.Release();
+		}
+	}
+
+	private async Task<RankingRefreshResult> RefreshCoreAsync(Guid profileId, CancellationToken ct)
 	{
 		var profile = await repo.GetProfileAsync(profileId, ct).ConfigureAwait(false)
 		              ?? throw new InvalidOperationException("Profil introuvable.");
@@ -97,6 +125,19 @@ public sealed class MuscleRankingService(IRhythmoRepository repo)
 	}
 
 	public async Task PersistAfterQuestAsync(ProfileExerciseRankRow row, CancellationToken ct = default)
+	{
+		await _refreshGate.WaitAsync(ct).ConfigureAwait(false);
+		try
+		{
+			await PersistAfterQuestCoreAsync(row, ct).ConfigureAwait(false);
+		}
+		finally
+		{
+			_refreshGate.Release();
+		}
+	}
+
+	private async Task PersistAfterQuestCoreAsync(ProfileExerciseRankRow row, CancellationToken ct)
 	{
 		await repo.UpsertProfileExerciseRankAsync(row, ct).ConfigureAwait(false);
 		var ranks = await repo.ListProfileExerciseRanksAsync(row.ProfileId, ct).ConfigureAwait(false);

@@ -9,7 +9,6 @@ using Rhythmo.Mobile.Diagnostics;
 using Rhythmo.Mobile.Data;
 using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Services;
-using Rhythmo.Mobile.Social;
 using Rhythmo.Mobile.Theme;
 using Rhythmo.Shared;
 using Rhythmo.Shared.Contracts;
@@ -50,6 +49,8 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 	private int _currentExerciseIndex;
 	private DateTime _draftStartedUtc;
 	private CancellationTokenSource? _draftSaveCts;
+	private bool _finalizeQueued;
+	private readonly object _draftGate = new();
 
 	private readonly WorkoutDraftStore _draftStore =
 		ServiceHelper.Services.GetRequiredService<WorkoutDraftStore>();
@@ -113,7 +114,8 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			return;
 
 		var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		_draftStore.Clear(activeProfileId);
+		lock (_draftGate)
+			_draftStore.Clear(activeProfileId);
 
 		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
 	}
@@ -668,14 +670,13 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 
 	private async void OnFinalizeClicked(object? sender, EventArgs e)
 	{
-		if (_profile is null || (!_isAdHoc && _tpl is null))
+		if (_profile is null || (!_isAdHoc && _tpl is null) || _finalizeQueued)
 			return;
 
 		FinalizeBtn.IsEnabled = false;
+		FinalizeBtn.Text = "Enregistrement…";
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 			var activeProfileId =
 				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
 			var prepared = BuildPreparedWorkout();
@@ -683,62 +684,83 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			{
 				await DisplayAlertAsync("Validation", "Aucune série complète trouvée (reps et kg positifs).", "OK")
 					.ConfigureAwait(true);
-				FinalizeBtn.IsEnabled = true;
+				ResetFinalizeButton();
 				return;
 			}
 
-			if (!await EnsureSessionForSaveAsync(auth).ConfigureAwait(true))
+			var job = new PendingWorkoutFinalize
 			{
-				FinalizeBtn.IsEnabled = true;
-				return;
+				WorkoutId = Guid.NewGuid(),
+				ProfileId = activeProfileId,
+				CompletedUtc = prepared.Utc,
+				PerformanceLocalDate = prepared.PerformanceLocalDate,
+				SessionTitle = _sessionTitle,
+				IsAdHoc = _isAdHoc,
+				SessionId = _sid,
+				Calories = prepared.Calories,
+				Minutes = prepared.Minutes,
+				TotalFilledSets = prepared.TotalFilledSets,
+				Stats = prepared.ExerciseStats
+					.Select(s => new PendingExerciseStat
+					{
+						ExerciseId = s.ExerciseId,
+						MaxKg = s.MaxKg,
+						LastKg = s.LastKg
+					})
+					.ToList(),
+				Exercises = prepared.Exercises.ToList()
+			};
+
+			var finalize = ServiceHelper.Services.GetRequiredService<WorkoutFinalizeService>();
+			lock (_draftGate)
+			{
+				_finalizeQueued = true;
+				_sessionUiReady = false;
+				_draftSaveCts?.Cancel();
 			}
 
-			var rankingResult = await SavePreparedWorkoutAsync(repo, activeProfileId, prepared).ConfigureAwait(false);
-
-			_sessionUiReady = false;
-			var kcalRounded = Math.Round(prepared.Calories);
-			var unlockItems = await BuildUnlockItemsAsync(repo, activeProfileId, rankingResult.Unlocked)
-				.ConfigureAwait(false);
-
-			await MainThread.InvokeOnMainThreadAsync(async () =>
+			try
 			{
-				await RhythmSuccessDialog.ShowAsync(
-					this,
-					$"Séance enregistrée · {kcalRounded} kcal (indicatif).").ConfigureAwait(true);
+				finalize.Enqueue(job);
+			}
+			catch
+			{
+				lock (_draftGate)
+				{
+					_finalizeQueued = false;
+					_sessionUiReady = true;
+				}
 
-				var openQuests = false;
-				if (unlockItems.Count > 0)
-					openQuests = await QuestUnlockDialog.ShowAsync(this, unlockItems).ConfigureAwait(true);
+				throw;
+			}
 
-				await UiShellNavigate.GoAsync("..").ConfigureAwait(true);
-				if (!openQuests)
-					return;
-				if (unlockItems.Count == 1)
-					await RankUi.GoQuest(unlockItems[0].ExerciseId).ConfigureAwait(true);
-				else
-					await UiShellNavigate.GoAsync(nameof(RankQuestsPage)).ConfigureAwait(true);
-			}).ConfigureAwait(true);
+			lock (_draftGate)
+				_draftStore.Clear(activeProfileId);
+
+			await UiShellNavigate.GoAsync("..").ConfigureAwait(true);
 		}
 		catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
 		{
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				FinalizeBtn.IsEnabled = true;
-				await RhythmAlertDialog.ShowAsync(
-					this,
-					"Session expirée",
-					"La séance n'a pas été enregistrée. Reconnecte-toi puis réessaie : tes charges sont toujours affichées à l'écran.",
-					isError: true).ConfigureAwait(true);
-			}).ConfigureAwait(true);
+			if (!_finalizeQueued)
+				ResetFinalizeButton();
+			await RhythmAlertDialog.ShowAsync(
+				this,
+				"Session expirée",
+				"La séance n'a pas été enregistrée. Reconnecte-toi puis réessaie : tes charges sont toujours affichées à l'écran.",
+				isError: true).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				FinalizeBtn.IsEnabled = true;
-				await _dev.TryShowSafeAsync(ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
-			}).ConfigureAwait(true);
+			if (!_finalizeQueued)
+				ResetFinalizeButton();
+			await _dev.TryShowSafeAsync(ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
 		}
+	}
+
+	private void ResetFinalizeButton()
+	{
+		FinalizeBtn.IsEnabled = true;
+		FinalizeBtn.Text = "✓ Terminer la séance";
 	}
 
 	private PreparedWorkout? BuildPreparedWorkout()
@@ -803,187 +825,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			minutes);
 	}
 
-	private async Task<bool> EnsureSessionForSaveAsync(SupabaseAuthService auth)
-	{
-		try
-		{
-			await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
-			if (auth.IsSignedIn)
-				return true;
-		}
-		catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
-		{
-			CrashLogWriter.TryAppend(nameof(EnsureSessionForSaveAsync), ex);
-		}
-
-		while (true)
-		{
-			var relog = await MainThread.InvokeOnMainThreadAsync(() =>
-				RhythmReauthDialog.ShowAsync(this, auth.CurrentUserEmail)).ConfigureAwait(true);
-			if (!relog.Confirmed)
-				return false;
-
-			var (ok, err) = await auth.SignInWithPasswordAsync(relog.Email, relog.Password).ConfigureAwait(false);
-			if (!ok)
-			{
-				await MainThread.InvokeOnMainThreadAsync(async () =>
-				{
-					await RhythmAlertDialog.ShowAsync(
-						this,
-						"Connexion refusée",
-						err ?? "Impossible de se reconnecter.",
-						isError: true).ConfigureAwait(true);
-				}).ConfigureAwait(true);
-				continue;
-			}
-
-			try
-			{
-				await auth.EnsureSessionFreshAsync().ConfigureAwait(false);
-				if (auth.IsSignedIn)
-					return true;
-			}
-			catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
-			{
-				CrashLogWriter.TryAppend(nameof(EnsureSessionForSaveAsync) + ".RefreshAfterRelog", ex);
-			}
-
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				await RhythmAlertDialog.ShowAsync(
-					this,
-					"Session indisponible",
-					"La reconnexion n'a pas suffi. Réessaie dans un instant.",
-					isError: true).ConfigureAwait(true);
-			}).ConfigureAwait(true);
-		}
-	}
-
-	private async Task<RankingRefreshResult> SavePreparedWorkoutAsync(
-		IRhythmoRepository repo,
-		Guid activeProfileId,
-		PreparedWorkout prepared)
-	{
-		foreach (var stat in prepared.ExerciseStats)
-		{
-			await repo.UpsertDailyMaxKgAsync(
-				activeProfileId,
-				stat.ExerciseId,
-				prepared.PerformanceLocalDate,
-				stat.MaxKg).ConfigureAwait(false);
-
-			await repo.UpsertLastWeightAsync(new ExerciseLastWeightRow
-			{
-				ProfileId = activeProfileId,
-				ExerciseId = stat.ExerciseId,
-				WeightKg = stat.LastKg,
-				UpdatedUtc = DateTime.UtcNow
-			}).ConfigureAwait(false);
-		}
-
-		var remote = new WorkoutCompletedRequest(
-			prepared.Utc,
-			prepared.Calories,
-			prepared.Minutes,
-			null,
-			prepared.Exercises);
-		var workoutId = Guid.NewGuid();
-		var savedWorkoutId = await repo.AddCompletedWorkoutAsync(new CompletedWorkoutRow
-		{
-			Id = workoutId,
-			ProfileId = activeProfileId,
-			CompletedUtc = prepared.Utc,
-			CaloriesRounded = prepared.Calories,
-			SessionTitle = _sessionTitle,
-			SourceSessionTemplateId = _isAdHoc ? null : _sid,
-			PayloadJson = CompletedWorkoutSnapshot.SerializeRequest(remote)
-		}).ConfigureAwait(false);
-
-		try
-		{
-			var prService = ServiceHelper.Services.GetRequiredService<PersonalRecordService>();
-			await prService.ProcessCompletedWorkoutAsync(
-				repo,
-				activeProfileId,
-				savedWorkoutId,
-				prepared.Utc,
-				prepared.Exercises,
-				prepared.TotalFilledSets).ConfigureAwait(false);
-		}
-		catch (Exception prEx) when (prEx is not OperationCanceledException)
-		{
-			await _dev.TryShowSafeAsync(prEx, nameof(OnFinalizeClicked) + ".Pr").ConfigureAwait(false);
-		}
-
-		var rankingResult = new RankingRefreshResult([]);
-		try
-		{
-			var ranking = ServiceHelper.Services.GetRequiredService<MuscleRankingService>();
-			rankingResult = await ranking.RefreshAsync(activeProfileId).ConfigureAwait(false);
-		}
-		catch (Exception rankEx) when (rankEx is not OperationCanceledException)
-		{
-			await _dev.TryShowSafeAsync(rankEx, nameof(OnFinalizeClicked) + ".Rank").ConfigureAwait(false);
-		}
-
-		ServiceHelper.Services.GetRequiredService<SocialHubService>().InvalidateCache();
-
-		if (!_isAdHoc)
-		{
-			var json = JsonSerializer.Serialize(new LastRunEnvelope(prepared.Exercises), JsonSnake);
-			await repo.UpsertSessionSnapshotAsync(new SessionLastSnapshotRow
-			{
-				SessionId = _sid,
-				Json = json,
-				SavedUtc = prepared.Utc
-			}).ConfigureAwait(false);
-		}
-
-		_draftStore.Clear(activeProfileId);
-		return rankingResult;
-	}
-
-	private static async Task<IReadOnlyList<QuestUnlockItem>> BuildUnlockItemsAsync(
-		IRhythmoRepository repo,
-		Guid profileId,
-		IReadOnlyList<NewlyUnlockedQuest> unlocked)
-	{
-		if (unlocked.Count == 0)
-			return [];
-
-		var exercises = (await repo.ListExercisesAsync().ConfigureAwait(false)).ToDictionary(e => e.Id);
-		var defs = RankingExerciseIndex.Map(exercises.Values);
-		var ranks = (await repo.ListProfileExerciseRanksAsync(profileId).ConfigureAwait(false))
-			.ToDictionary(r => r.ExerciseId);
-
-		var items = new List<QuestUnlockItem>(unlocked.Count);
-		foreach (var u in unlocked)
-		{
-			exercises.TryGetValue(u.ExerciseId, out var ex);
-			defs.TryGetValue(u.ExerciseId, out var def);
-			ranks.TryGetValue(u.ExerciseId, out var rank);
-			var objective = "—";
-			if (rank?.R10Used is > 0 && def is not null)
-			{
-				var option = QuestObjectivePlanner.ForRank(
-					rank.R10Used.Value,
-					u.TargetRank,
-					def.MeasurementType ?? MeasurementType.FiveRm,
-					def.LoadMode);
-				objective = QuestObjectiveUi.FormatSet(option.Primary, def.LoadMode);
-			}
-
-			items.Add(new QuestUnlockItem(
-				u.ExerciseId,
-				ex?.NameFr ?? "Exercice",
-				u.TargetRank,
-				u.ValidatedRank,
-				objective));
-		}
-
-		return items;
-	}
-
 	void ScheduleDraftSave()
 	{
 		if (!_sessionUiReady)
@@ -1009,25 +850,28 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 
 	void PersistDraftNow(Guid profileId)
 	{
-		if (!_sessionUiReady)
-			return;
-
-		if (_isAdHoc && _blocks.Count == 0)
+		lock (_draftGate)
 		{
-			_draftStore.Clear(profileId);
-			return;
-		}
+			if (!_sessionUiReady || _finalizeQueued)
+				return;
 
-		if (!_isAdHoc && _tpl is null)
-			return;
+			if (_isAdHoc && _blocks.Count == 0)
+			{
+				_draftStore.Clear(profileId);
+				return;
+			}
 
-		try
-		{
-			_draftStore.Save(BuildDraftEnvelope(profileId));
-		}
-		catch (Exception ex)
-		{
-			CrashLogWriter.TryAppend(nameof(PersistDraftNow), ex);
+			if (!_isAdHoc && _tpl is null)
+				return;
+
+			try
+			{
+				_draftStore.Save(BuildDraftEnvelope(profileId));
+			}
+			catch (Exception ex)
+			{
+				CrashLogWriter.TryAppend(nameof(PersistDraftNow), ex);
+			}
 		}
 	}
 

@@ -1,4 +1,5 @@
 using Rhythmo.Mobile.Controls.Anatomy;
+using GfxImage = Microsoft.Maui.Graphics.IImage;
 using Rhythmo.Mobile.Theme;
 using Rhythmo.Shared.Ranking;
 
@@ -9,14 +10,6 @@ public sealed class AnatomyBodyView : ContentView
 	private readonly Dictionary<string, BodyGroupVisual> _groups = [];
 	private readonly AnatomyCanvas _front = new(AnatomyViewKind.Front);
 	private readonly AnatomyCanvas _back = new(AnatomyViewKind.Back);
-	private readonly Image _robot = new()
-	{
-		Aspect = Aspect.AspectFit,
-		HorizontalOptions = LayoutOptions.Fill,
-		VerticalOptions = LayoutOptions.Fill,
-		InputTransparent = true,
-		IsVisible = false
-	};
 	private readonly ActivityIndicator _loader = new()
 	{
 		IsRunning = true,
@@ -58,8 +51,12 @@ public sealed class AnatomyBodyView : ContentView
 	private bool _showBack;
 	private string? _selectedId;
 	private int? _overallRank;
-	private string? _robotFile;
 	private bool _robotReady;
+	private int _robotLoadGeneration;
+	private GfxImage? _frontRobot;
+	private GfxImage? _backRobot;
+	private string? _frontRobotKey;
+	private string? _backRobotKey;
 
 	public event EventHandler<string>? GroupOpened;
 
@@ -80,7 +77,6 @@ public sealed class AnatomyBodyView : ContentView
 		_toggle.Children.Add(_frontBtn);
 		_toggle.Children.Add(_backBtn);
 
-		_stage.Children.Add(_robot);
 		_stage.Children.Add(_front);
 		_stage.Children.Add(_back);
 		_stage.Children.Add(_loader);
@@ -149,8 +145,7 @@ public sealed class AnatomyBodyView : ContentView
 		_robotReady = true;
 		_loader.IsRunning = false;
 		_loader.IsVisible = false;
-		_robot.IsVisible = true;
-		PaintRobot();
+		_ = PaintRobotAsync();
 	}
 
 	private void OnGroupPicked(object? sender, string? groupId)
@@ -198,18 +193,57 @@ public sealed class AnatomyBodyView : ContentView
 			? "Touche une zone du robot pour voir le rang du groupe."
 			: "Rang global · touche une zone pour un groupe.";
 		_openBtn.IsVisible = false;
-		PaintRobot();
+		_ = PaintRobotAsync();
 	}
 
-	private void PaintRobot()
+	private async Task PaintRobotAsync()
 	{
 		if (!_robotReady)
 			return;
-		var file = RankRobot.FileName(_overallRank, _showBack);
-		if (_robotFile == file)
+
+		var generation = ++_robotLoadGeneration;
+		var back = _showBack;
+		var key = RankRobot.FileName(_overallRank, back);
+		var canvas = back ? _back : _front;
+		var cachedKey = back ? _backRobotKey : _frontRobotKey;
+		var cachedImage = back ? _backRobot : _frontRobot;
+
+		if (cachedKey == key && cachedImage is not null)
+		{
+			canvas.SetRobotImage(cachedImage);
 			return;
-		_robotFile = file;
-		_robot.Source = file;
+		}
+
+		GfxImage? image = null;
+		try
+		{
+			image = await RankRobot.LoadAsync(_overallRank, back).ConfigureAwait(true);
+		}
+		catch
+		{
+			image = null;
+		}
+
+		if (generation != _robotLoadGeneration)
+		{
+			(image as IDisposable)?.Dispose();
+			return;
+		}
+
+		if (back)
+		{
+			(_backRobot as IDisposable)?.Dispose();
+			_backRobot = image;
+			_backRobotKey = key;
+		}
+		else
+		{
+			(_frontRobot as IDisposable)?.Dispose();
+			_frontRobot = image;
+			_frontRobotKey = key;
+		}
+
+		canvas.SetRobotImage(image);
 	}
 
 	private void SetSide(bool back)
@@ -225,7 +259,7 @@ public sealed class AnatomyBodyView : ContentView
 		_viewCaption.Text = _showBack ? "Vue arrière" : "Vue avant";
 		StyleToggle(_frontBtn, !_showBack);
 		StyleToggle(_backBtn, _showBack);
-		PaintRobot();
+		_ = PaintRobotAsync();
 	}
 
 	private static Button MakeToggle(string text) => new()
@@ -263,7 +297,7 @@ public sealed class AnatomyBodyView : ContentView
 		{
 			_map = new AnatomyBodyDrawable { Kind = kind };
 			Drawable = _map;
-			BackgroundColor = Colors.Transparent;
+			BackgroundColor = RhythmColors.Bg;
 			HorizontalOptions = LayoutOptions.Fill;
 			VerticalOptions = LayoutOptions.Fill;
 			MinimumHeightRequest = 280;
@@ -287,6 +321,12 @@ public sealed class AnatomyBodyView : ContentView
 		public void SetGroups(IReadOnlyDictionary<string, BodyGroupVisual> groups)
 		{
 			_map.Groups = groups;
+			Invalidate();
+		}
+
+		public void SetRobotImage(GfxImage? image)
+		{
+			_map.RobotImage = image;
 			Invalidate();
 		}
 

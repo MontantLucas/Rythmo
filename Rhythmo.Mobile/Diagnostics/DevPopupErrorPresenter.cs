@@ -1,5 +1,6 @@
 using Microsoft.Maui.ApplicationModel.DataTransfer;
 using Rhythmo.Mobile.Infrastructure;
+using Rhythmo.Mobile.Services;
 
 namespace Rhythmo.Mobile.Diagnostics;
 
@@ -9,6 +10,15 @@ public sealed class DevPopupErrorPresenter : IDevErrorPresenter
 	public async Task TryShowSafeAsync(Exception ex, string context)
 	{
 		CrashLogWriter.TryAppend($"ErreurUI.{context}", ex);
+
+		// Perte de connexion : jamais d'UI — un refresh + retry côté appelant suffit.
+		if (NetworkFault.IsTransient(ex))
+			return;
+
+		// Session morte : laisser les flux métier (bandeau / RhythmReauthDialog), pas la modale DEV.
+		if (SupabaseAuthService.RequiresReauthentication(ex))
+			return;
+
 		try
 		{
 			await MainThread.InvokeOnMainThreadAsync(async () =>

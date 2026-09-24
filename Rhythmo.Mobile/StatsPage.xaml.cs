@@ -29,6 +29,7 @@ public partial class StatsPage : ContentPage
 	public StatsPage()
 	{
 		InitializeComponent();
+		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
 		ProgressChart.Drawable = _progressDrawable;
 		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
@@ -51,43 +52,52 @@ public partial class StatsPage : ContentPage
 
 	private async Task ReloadAsync()
 	{
+		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 		try
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId =
-				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-			var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
-
-			var overview = await Task.Run(() =>
+			await auth.TryWithSessionRetryAsync(async ct =>
 			{
-				double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
-				var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
-				var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
-				var ui = hist.Select(c =>
-					new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
-				return (
-					VolText: volText,
-					CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-					KcalText: kcal,
-					Rows: ui);
-			}).ConfigureAwait(false);
-
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				OverviewVolumeLabel.Text = overview.VolText;
-				OverviewCountLabel.Text = overview.CountText;
-				OverviewKcalLabel.Text = overview.KcalText;
-				HistoryList.ItemsSource = overview.Rows;
-				HistoryList.SelectedItem = null;
-
-				await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
-			}).ConfigureAwait(false);
+				await ReloadCoreAsync().ConfigureAwait(false);
+			}, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
 			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
 		}
+	}
+
+	private async Task ReloadCoreAsync()
+	{
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var profileId =
+			ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+		var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
+
+		var overview = await Task.Run(() =>
+		{
+			double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
+			var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
+			var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
+			var ui = hist.Select(c =>
+				new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
+			return (
+				VolText: volText,
+				CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+				KcalText: kcal,
+				Rows: ui);
+		}).ConfigureAwait(false);
+
+		await MainThread.InvokeOnMainThreadAsync(async () =>
+		{
+			OverviewVolumeLabel.Text = overview.VolText;
+			OverviewCountLabel.Text = overview.CountText;
+			OverviewKcalLabel.Text = overview.KcalText;
+			HistoryList.ItemsSource = overview.Rows;
+			HistoryList.SelectedItem = null;
+
+			await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
+		}).ConfigureAwait(false);
 	}
 
 	private async void HistoryListOnSelectionChanged(object? sender, SelectionChangedEventArgs e)

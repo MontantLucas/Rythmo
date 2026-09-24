@@ -5,8 +5,9 @@
              x:Class="Rhythmo.Mobile.DashboardPage"
              Title="Accueil"
              Shell.NavBarIsVisible="False">
-    <RefreshView x:Name="DashRefresh">
-        <ScrollView>
+    <Grid>
+        <RefreshView x:Name="DashRefresh">
+            <ScrollView>
             <VerticalStackLayout Padding="{OnIdiom Phone='20', Default='28'}"
                                  Spacing="20"
                                  MaximumWidthRequest="840"
@@ -45,6 +46,7 @@
                 <controls:AnatomyBodyView x:Name="BodyMap"
                                           GroupOpened="OnGroupOpened" />
             </VerticalStackLayout>
-        </ScrollView>
-    </RefreshView>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
 </ContentPage>

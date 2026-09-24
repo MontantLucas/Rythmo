@@ -42,6 +42,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<MuscleRankingService>();
 		builder.Services.AddSingleton<RankQuestService>();
 		builder.Services.AddSingleton<WorkoutDraftStore>();
+		builder.Services.AddSingleton<WorkoutFinalizeService>();
 		builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

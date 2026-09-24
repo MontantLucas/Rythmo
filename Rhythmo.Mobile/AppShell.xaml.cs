@@ -7,9 +7,11 @@ namespace Rhythmo.Mobile;
 
 public partial class AppShell : Shell
 {
-	public AppShell(GlobalExceptionBootstrap boot, IDevErrorPresenter presenter)
+	public AppShell(GlobalExceptionBootstrap boot, IDevErrorPresenter presenter, WorkoutFinalizeService finalize)
 	{
 		InitializeComponent();
+		WorkoutSaveBanner.Bind(this, finalize);
+		finalize.ResumePending();
 
 		Routing.RegisterRoute(nameof(SessionEditPage), typeof(SessionEditPage));
 		Routing.RegisterRoute(nameof(WorkoutRunnerPage), typeof(WorkoutRunnerPage));
@@ -26,6 +28,7 @@ public partial class AppShell : Shell
 
 		Loaded += (_, _) =>
 		{
+			WorkoutSaveBanner.NotifyShellReady();
 			try
 			{
 				boot.Register();
