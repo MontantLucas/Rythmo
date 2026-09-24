@@ -10,6 +10,14 @@ public sealed class AnatomyBodyView : ContentView
 	private readonly Dictionary<string, BodyGroupVisual> _groups = [];
 	private readonly AnatomyCanvas _front = new(AnatomyViewKind.Front);
 	private readonly AnatomyCanvas _back = new(AnatomyViewKind.Back);
+	private readonly Image _robot = new()
+	{
+		Aspect = Aspect.AspectFit,
+		HorizontalOptions = LayoutOptions.Fill,
+		VerticalOptions = LayoutOptions.Fill,
+		InputTransparent = true,
+		IsVisible = false
+	};
 	private readonly ActivityIndicator _loader = new()
 	{
 		IsRunning = true,
@@ -77,6 +85,9 @@ public sealed class AnatomyBodyView : ContentView
 		_toggle.Children.Add(_frontBtn);
 		_toggle.Children.Add(_backBtn);
 
+		// Image sous le GraphicsView : visible sur Android/iOS (canvas transparent).
+		// Sur Windows le canvas est opaque → on dessine aussi le robot dans le drawable.
+		_stage.Children.Add(_robot);
 		_stage.Children.Add(_front);
 		_stage.Children.Add(_back);
 		_stage.Children.Add(_loader);
@@ -145,6 +156,7 @@ public sealed class AnatomyBodyView : ContentView
 		_robotReady = true;
 		_loader.IsRunning = false;
 		_loader.IsVisible = false;
+		_robot.IsVisible = true;
 		_ = PaintRobotAsync();
 	}
 
@@ -204,6 +216,8 @@ public sealed class AnatomyBodyView : ContentView
 		var generation = ++_robotLoadGeneration;
 		var back = _showBack;
 		var key = RankRobot.FileName(_overallRank, back);
+		_robot.Source = key;
+
 		var canvas = back ? _back : _front;
 		var cachedKey = back ? _backRobotKey : _frontRobotKey;
 		var cachedImage = back ? _backRobot : _frontRobot;
@@ -214,6 +228,8 @@ public sealed class AnatomyBodyView : ContentView
 			return;
 		}
 
+		// Windows : GraphicsView opaque — charger le PNG pour le dessiner dans le canvas.
+		// Android : MauiImage n'est pas dans le package brut ; l'Image MAUI ci-dessus suffit.
 		GfxImage? image = null;
 		try
 		{
@@ -297,7 +313,7 @@ public sealed class AnatomyBodyView : ContentView
 		{
 			_map = new AnatomyBodyDrawable { Kind = kind };
 			Drawable = _map;
-			BackgroundColor = RhythmColors.Bg;
+			BackgroundColor = Colors.Transparent;
 			HorizontalOptions = LayoutOptions.Fill;
 			VerticalOptions = LayoutOptions.Fill;
 			MinimumHeightRequest = 280;

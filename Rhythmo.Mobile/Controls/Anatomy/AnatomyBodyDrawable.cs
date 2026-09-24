@@ -25,7 +25,9 @@ internal sealed class AnatomyBodyDrawable : IDrawable
 		try
 		{
 			canvas.Antialias = true;
-			canvas.FillColor = RhythmColors.Bg;
+			// Fond opaque seulement si le robot est dessiné ici (Windows).
+			// Sinon transparent pour laisser voir l'Image MAUI derrière (Android).
+			canvas.FillColor = RobotImage is not null ? RhythmColors.Bg : Colors.Transparent;
 			canvas.FillRectangle(dirtyRect);
 
 			var (scale, ox, oy) = Fit(dirtyRect.Width, dirtyRect.Height);
