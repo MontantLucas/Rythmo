@@ -45,9 +45,16 @@ public sealed class SessionRecovery
 
 		window.Resumed += (_, _) => _core.NotifyResumed();
 		Connectivity.Current.ConnectivityChanged += (_, e) =>
-			_core.SetRadio(e.NetworkAccess == NetworkAccess.Internet);
-		_core.SetRadio(Connectivity.Current.NetworkAccess == NetworkAccess.Internet);
+			_core.SetRadio(HasUsableNetwork(e.NetworkAccess));
+		_core.SetRadio(HasUsableNetwork(Connectivity.Current.NetworkAccess));
 	}
+
+	/// <summary>
+	/// Sur Android, l'accès est souvent Unknown ou ConstrainedInternet alors que les requêtes passent.
+	/// Seule l'absence de réseau doit bloquer la reconnexion.
+	/// </summary>
+	private static bool HasUsableNetwork(NetworkAccess access) =>
+		access is not NetworkAccess.None and not NetworkAccess.Local;
 
 	public void Bind(object page, Func<Task> reload)
 	{
@@ -71,8 +78,15 @@ public sealed class SessionRecovery
 		CancellationToken cancellationToken = default)
 	{
 		_context.Value = context;
-		var kind = await _core.GuardAsync(async _ => await action().ConfigureAwait(false), cancellationToken)
-			.ConfigureAwait(false);
+		var kind = await _core.GuardAsync(async _ =>
+		{
+			// Les pages touchent l'UI après await : le travail doit démarrer sur le thread UI,
+			// sinon ConfigureAwait(true) ne revient jamais sur ce thread et l'écran reste vide.
+			if (MainThread.IsMainThread)
+				await action().ConfigureAwait(false);
+			else
+				await MainThread.InvokeOnMainThreadAsync(action).ConfigureAwait(false);
+		}, cancellationToken).ConfigureAwait(false);
 
 		if (kind == FaultKind.Reauth && page is not null)
 			await PromptReauthAsync(page).ConfigureAwait(false);

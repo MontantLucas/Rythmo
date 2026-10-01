@@ -30,8 +30,16 @@ public partial class DashboardPage : ContentPage
 
 	private async Task AppearAsync()
 	{
-		await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(false);
-		await ReloadCoreAsync().ConfigureAwait(false);
+		try
+		{
+			await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(true);
+		}
+		catch
+		{
+			// Le corps doit s'afficher même si le popup de défi échoue.
+		}
+
+		await ReloadCoreAsync().ConfigureAwait(true);
 	}
 
 	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
@@ -40,7 +48,7 @@ public partial class DashboardPage : ContentPage
 	{
 		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 		var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		await LoadBodyAsync(repo, profileId).ConfigureAwait(false);
+		await LoadBodyAsync(repo, profileId).ConfigureAwait(true);
 	}
 
 	private async Task LoadBodyAsync(IRhythmoRepository repo, Guid profileId)
