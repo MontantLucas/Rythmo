@@ -1,23 +1,39 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
              x:Class="Rhythmo.Mobile.FriendsPage"
              Title="Amis"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource RhythmBg}">
-    <RefreshView x:Name="FriendsRefresh">
-        <ScrollView>
-            <VerticalStackLayout x:Name="RootStack"
-                                 Padding="20,12,20,28"
-                                 Spacing="0">
-                <ContentView x:Name="LeaderboardHost" />
-                <ContentView x:Name="PrSectionHeaderHost" />
-                <VerticalStackLayout x:Name="PrFeedHost" Spacing="0" />
-                <ContentView x:Name="ActivityHost" />
-                <ContentView x:Name="StreaksHost" />
-                <ContentView x:Name="BadgesSectionHeaderHost" />
-                <ContentView x:Name="BadgesHost" />
-            </VerticalStackLayout>
-        </ScrollView>
-    </RefreshView>
+    <Grid RowDefinitions="Auto,*"
+          Padding="20,12,20,8">
+        <VerticalStackLayout Spacing="10">
+            <Label Style="{StaticResource RhythmH2}" Text="Amis" />
+            <controls:RhythmSectionTabs x:Name="HubTabs" />
+        </VerticalStackLayout>
+
+        <RefreshView x:Name="FriendsRefresh" Grid.Row="1" Margin="0,8,0,0">
+            <Grid>
+                <ScrollView x:Name="AmisScroll">
+                    <VerticalStackLayout x:Name="AmisStack"
+                                         Padding="0,0,0,28"
+                                         Spacing="0">
+                        <ContentView x:Name="PrSectionHeaderHost" />
+                        <VerticalStackLayout x:Name="PrFeedHost" Spacing="0" />
+                        <ContentView x:Name="ActivityHost" />
+                        <ContentView x:Name="StreaksHost" />
+                        <ContentView x:Name="BadgesSectionHeaderHost" />
+                        <ContentView x:Name="BadgesHost" />
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <ScrollView x:Name="RankScroll" IsVisible="False">
+                    <VerticalStackLayout Padding="0,4,0,28">
+                        <ContentView x:Name="LeaderboardHost" />
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
+        </RefreshView>
+    </Grid>
 </ContentPage>

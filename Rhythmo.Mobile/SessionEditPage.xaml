@@ -219,6 +219,8 @@
                                Text="Groupe musculaire"
                                TextColor="{StaticResource RhythmTextSecondary}" />
                         <controls:RhythmOptionSelector x:Name="AddSheetCategorySelector"
+                                                       Title="Groupe musculaire"
+                                                       Placeholder="Tous les groupes"
                                                        SemanticProperties.Hint="Filtrer la liste par groupe musculaire"
                                                        SelectedIndexChanged="OnAddSheetCategoryPickerChanged" />
                     </VerticalStackLayout>

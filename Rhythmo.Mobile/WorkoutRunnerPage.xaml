@@ -1,61 +1,142 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
              x:Class="Rhythmo.Mobile.WorkoutRunnerPage"
              Title="Séance en cours">
-    <Grid Padding="{OnIdiom Phone='18', Default='26'}"
-          RowDefinitions="Auto,* ,Auto"
-          RowSpacing="18">
+    <Grid>
+        <Grid Padding="{OnIdiom Phone='18', Default='26'}"
+              RowDefinitions="Auto,*,Auto"
+              RowSpacing="18">
 
-        <VerticalStackLayout Grid.Row="0" Spacing="12">
-            <HorizontalStackLayout HorizontalOptions="End" Spacing="0">
-                <Button Style="{StaticResource RhythmBtnGhost}"
-                        Text="Annuler"
-                        SemanticProperties.Hint="Quitter cette séance sans enregistrer"
-                        Clicked="OnAbandonSessionClicked" />
-            </HorizontalStackLayout>
-            <Label x:Name="SessionMetaSmall"
-                   Style="{StaticResource RhythmCaption}"
-                   LineBreakMode="TailTruncation" />
-            <ProgressBar x:Name="ExerciseProgressBar"
-                         HeightRequest="6"
-                         Progress="0" />
-            <Label x:Name="ExerciseCounterLabel"
-                   Style="{StaticResource RhythmCaption}" />
-            <Label x:Name="ExerciseTitleLabel"
-                   Style="{StaticResource RhythmH2}"
-                   LineBreakMode="WordWrap" />
-            <Label x:Name="ExerciseCategoryLabel"
-                   Style="{StaticResource RhythmCaption}" />
-        </VerticalStackLayout>
+            <VerticalStackLayout Grid.Row="0" Spacing="12">
+                <HorizontalStackLayout HorizontalOptions="End" Spacing="8">
+                    <Button x:Name="RemoveExerciseBtn"
+                            Style="{StaticResource RhythmBtnGhost}"
+                            Text="Retirer"
+                            IsVisible="False"
+                            SemanticProperties.Hint="Retirer cet exercice de la séance à la volée"
+                            Clicked="OnRemoveExerciseClicked" />
+                    <Button Style="{StaticResource RhythmBtnGhost}"
+                            Text="Annuler"
+                            SemanticProperties.Hint="Quitter cette séance sans enregistrer"
+                            Clicked="OnAbandonSessionClicked" />
+                </HorizontalStackLayout>
+                <Label x:Name="SessionMetaSmall"
+                       Style="{StaticResource RhythmCaption}"
+                       LineBreakMode="TailTruncation" />
+                <ProgressBar x:Name="ExerciseProgressBar"
+                             HeightRequest="6"
+                             Progress="0" />
+                <Label x:Name="ExerciseCounterLabel"
+                       Style="{StaticResource RhythmCaption}" />
+                <Label x:Name="ExerciseTitleLabel"
+                       Style="{StaticResource RhythmH2}"
+                       LineBreakMode="WordWrap" />
+                <HorizontalStackLayout Spacing="12">
+                    <Label x:Name="ExerciseCategoryLabel"
+                           Style="{StaticResource RhythmCaption}"
+                           VerticalOptions="Center" />
+                    <Label x:Name="ExercisePrMaxLabel"
+                           Style="{StaticResource RhythmCaption}"
+                           TextColor="{StaticResource RhythmGold}"
+                           FontFamily="OpenSansSemibold"
+                           VerticalOptions="Center"
+                           IsVisible="False" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
 
-        <ScrollView Grid.Row="1">
-            <VerticalStackLayout x:Name="ActiveExerciseRoot"
-                                 Spacing="12"
-                                 Padding="0,4,0,12" />
-        </ScrollView>
+            <ScrollView Grid.Row="1">
+                <VerticalStackLayout x:Name="ActiveExerciseRoot"
+                                     Spacing="12"
+                                     Padding="0,4,0,12" />
+            </ScrollView>
 
-        <VerticalStackLayout Grid.Row="2"
-                             Spacing="14">
-            <Button Style="{StaticResource RhythmBtnSecondary}"
-                    Text="+ série"
-                    Clicked="OnAddSetClicked" />
-            <Grid ColumnDefinitions="*,*"
-                  ColumnSpacing="12">
-                <Button x:Name="PrevExerciseBtn"
-                        Grid.Column="0"
+            <VerticalStackLayout Grid.Row="2"
+                                 Spacing="14">
+                <Button x:Name="AddSetBtn"
                         Style="{StaticResource RhythmBtnSecondary}"
-                        Text="← Précédent"
-                        Clicked="OnPrevExerciseClicked" />
-                <Button x:Name="NextExerciseBtn"
-                        Grid.Column="1"
-                        Text="Suivant →"
-                        Clicked="OnNextExerciseClicked" />
-            </Grid>
-            <Button x:Name="FinalizeBtn"
-                    Style="{StaticResource RhythmBtnFinish}"
-                    Text="✓ Terminer la séance"
-                    Clicked="OnFinalizeClicked" />
-        </VerticalStackLayout>
+                        Text="+ série"
+                        Clicked="OnAddSetClicked" />
+                <Button x:Name="AddExerciseBtn"
+                        Style="{StaticResource RhythmBtnSecondary}"
+                        Text="+ exercice"
+                        IsVisible="False"
+                        SemanticProperties.Hint="Ajouter un exercice à cette séance à la volée"
+                        Clicked="OnAddExerciseClicked" />
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="12">
+                    <Button x:Name="PrevExerciseBtn"
+                            Grid.Column="0"
+                            Style="{StaticResource RhythmBtnSecondary}"
+                            Text="← Précédent"
+                            Clicked="OnPrevExerciseClicked" />
+                    <Button x:Name="NextExerciseBtn"
+                            Grid.Column="1"
+                            Text="Suivant →"
+                            Clicked="OnNextExerciseClicked" />
+                </Grid>
+                <Button x:Name="FinalizeBtn"
+                        Style="{StaticResource RhythmBtnFinish}"
+                        Text="✓ Terminer la séance"
+                        Clicked="OnFinalizeClicked" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid x:Name="AddSheetOverlay"
+              IsVisible="False"
+              InputTransparent="True"
+              ZIndex="50"
+              RowDefinitions="*,Auto">
+            <ContentView Grid.Row="0" BackgroundColor="{StaticResource RhythmOverlay}">
+                <ContentView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnAddSheetBackdropTapped" />
+                </ContentView.GestureRecognizers>
+            </ContentView>
+            <Border x:Name="AddSheetPanel"
+                    Grid.Row="1"
+                    Margin="8,0,8,16"
+                    Padding="0,0,0,12"
+                    BackgroundColor="{StaticResource RhythmSurface2}"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="0">
+                    <Grid Padding="18,16,12,8" ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="18"
+                               Text="Ajouter un exercice"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Button Grid.Column="1"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                FontSize="18"
+                                Padding="8"
+                                Text="✕"
+                                TextColor="{StaticResource RhythmTextSecondary}"
+                                Clicked="OnCloseAddSheetClicked" />
+                    </Grid>
+                    <controls:RhythmSearchField x:Name="AddSheetSearchBar"
+                                                Margin="12,0,12,8"
+                                                Placeholder="Rechercher un exercice…" />
+                    <VerticalStackLayout Margin="12,0,12,12" Spacing="6">
+                        <Label FontSize="12"
+                               Text="Groupe musculaire"
+                               TextColor="{StaticResource RhythmTextSecondary}" />
+                        <controls:RhythmOptionSelector x:Name="AddSheetCategorySelector"
+                                                       Title="Groupe musculaire"
+                                                       Placeholder="Tous les groupes"
+                                                       SemanticProperties.Hint="Filtrer la liste par groupe musculaire"
+                                                       SelectedIndexChanged="OnAddSheetCategoryChanged" />
+                    </VerticalStackLayout>
+                    <ScrollView MaximumHeightRequest="420"
+                                Margin="0,0,0,4">
+                        <VerticalStackLayout x:Name="AddCatalogHost" Spacing="8" Padding="12,0,12,8" />
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

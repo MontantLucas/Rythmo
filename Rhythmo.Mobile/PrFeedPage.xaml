@@ -48,10 +48,14 @@
             <Grid ColumnDefinitions="*,*"
                   ColumnSpacing="8">
                 <controls:RhythmOptionSelector x:Name="UserFilterSelector"
+                                               Title="Personne"
+                                               Placeholder="Tout le monde"
                                                IsCompact="True"
                                                SelectedIndexChanged="OnUserFilterChanged" />
                 <controls:RhythmOptionSelector x:Name="ExerciseFilterSelector"
                                                Grid.Column="1"
+                                               Title="Exercice"
+                                               Placeholder="Tous les exercices"
                                                IsCompact="True"
                                                SelectedIndexChanged="OnExerciseFilterChanged" />
             </Grid>

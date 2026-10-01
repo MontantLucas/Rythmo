@@ -15,9 +15,6 @@ public partial class StatsPage : ContentPage
 	private const string CleanPickAll = "Tout vider";
 	private const string CleanPickOrphans = "Vider uniquement les séances qui n’existent plus";
 
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private readonly WeightProgressDrawable _progressDrawable = new();
 
 	private int _tabIndex;
@@ -29,8 +26,12 @@ public partial class StatsPage : ContentPage
 	public StatsPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, ReloadCoreAsync);
+		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
 		ProgressChart.Drawable = _progressDrawable;
+		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
+		StatsTabs.SelectedIndexChanged += (_, idx) => ShowTab(idx);
 
 		StatsRefresh.Refreshing += async (_, _) =>
 		{
@@ -47,59 +48,40 @@ public partial class StatsPage : ContentPage
 		await ReloadAsync().ConfigureAwait(true);
 	}
 
-	private static Style? LookupButtonStyle(string key)
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
+
+	private async Task ReloadCoreAsync()
 	{
-		var app = Application.Current;
-		if (app?.Resources.TryGetValue(key, out var o) == true && o is Style sty)
-			return sty;
-		foreach (var md in app?.Resources.MergedDictionaries ?? Enumerable.Empty<ResourceDictionary>())
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var profileId =
+			ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+		var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
+
+		var overview = await Task.Run(() =>
 		{
-			if (md.TryGetValue(key, out var o2) && o2 is Style sty2)
-				return sty2;
-		}
+			double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
+			var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
+			var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
+			var ui = hist.Select(c =>
+				new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
+			return (
+				VolText: volText,
+				CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+				KcalText: kcal,
+				Rows: ui);
+		}).ConfigureAwait(false);
 
-		return null;
-	}
-
-	private async Task ReloadAsync()
-	{
-		try
+		await MainThread.InvokeOnMainThreadAsync(async () =>
 		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId =
-				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+			OverviewVolumeLabel.Text = overview.VolText;
+			OverviewCountLabel.Text = overview.CountText;
+			OverviewKcalLabel.Text = overview.KcalText;
+			HistoryList.ItemsSource = overview.Rows;
+			HistoryList.SelectedItem = null;
 
-			var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
-
-			var overview = await Task.Run(() =>
-			{
-				double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
-				var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
-				var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
-				var ui = hist.Select(c =>
-					new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
-				return (
-					VolText: volText,
-					CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-					KcalText: kcal,
-					Rows: ui);
-			}).ConfigureAwait(false);
-
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				OverviewVolumeLabel.Text = overview.VolText;
-				OverviewCountLabel.Text = overview.CountText;
-				OverviewKcalLabel.Text = overview.KcalText;
-				HistoryList.ItemsSource = overview.Rows;
-				HistoryList.SelectedItem = null;
-
-				await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
-			}).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
-		}
+			await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
+		}).ConfigureAwait(false);
 	}
 
 	private async void HistoryListOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -121,31 +103,18 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(HistoryListOnSelectionChanged)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(HistoryListOnSelectionChanged)).ConfigureAwait(true);
 		}
 	}
-
-	private void OnTabOverview(object? sender, EventArgs e) => ShowTab(0);
-
-	private void OnTabSessions(object? sender, EventArgs e) => ShowTab(1);
-
-	private void OnTabProgress(object? sender, EventArgs e) => ShowTab(2);
 
 	private void ShowTab(int idx)
 	{
 		_tabIndex = idx;
+		if (StatsTabs.SelectedIndex != idx)
+			StatsTabs.SelectedIndex = idx;
 		OverviewPanel.IsVisible = idx == 0;
 		SessionsPanel.IsVisible = idx == 1;
 		ProgressPanel.IsVisible = idx == 2;
-
-		var secondary = LookupButtonStyle("RhythmBtnSecondary");
-		var ghost = LookupButtonStyle("RhythmBtnGhost");
-		if (secondary is null || ghost is null)
-			return;
-
-		TabOverviewBtn.Style = idx == 0 ? secondary : ghost;
-		TabSessionsBtn.Style = idx == 1 ? secondary : ghost;
-		TabProgressBtn.Style = idx == 2 ? secondary : ghost;
 
 		if (idx == 2)
 			InvalidateProgressChart();
@@ -222,7 +191,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnCleanHistoryClicked)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnCleanHistoryClicked)).ConfigureAwait(false);
 		}
 
 		await ReloadAsync().ConfigureAwait(false);
@@ -249,7 +218,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnProgressExerciseSelected)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSelected)).ConfigureAwait(true);
 		}
 	}
 
@@ -271,7 +240,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
 		}
 	}
 

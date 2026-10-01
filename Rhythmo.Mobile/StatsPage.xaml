@@ -4,87 +4,43 @@
              xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
              x:Class="Rhythmo.Mobile.StatsPage"
              Title="Stats"
-             Shell.NavBarIsVisible="False">
-    <Grid Padding="{OnIdiom Phone='20,48,20,16', Default='28,22'}"
-          RowDefinitions="Auto,Auto,*">
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="{OnIdiom Phone='20,12,20,16', Default='28,18'}"
+          RowDefinitions="Auto,*">
 
-        <VerticalStackLayout Grid.Row="0"
-                             Spacing="8"
-                             Margin="0,0,0,16">
-            <Label Style="{StaticResource RhythmH2}" Text="Historique et progression" />
-            <Label Style="{StaticResource RhythmCaption}"
-                   Text="Vue synthétique des séances terminées pour ce profil." />
-        </VerticalStackLayout>
-
-        <HorizontalStackLayout Grid.Row="1"
-                               Spacing="10"
-                               Margin="0,0,0,16">
-            <Button x:Name="TabOverviewBtn"
-                    Style="{StaticResource RhythmBtnSecondary}"
-                    Padding="14,10"
-                    Text="Aperçu"
-                    Clicked="OnTabOverview" />
-            <Button x:Name="TabSessionsBtn"
-                    Style="{StaticResource RhythmBtnGhost}"
-                    Padding="14,10"
-                    Text="Séances"
-                    Clicked="OnTabSessions" />
-            <Button x:Name="TabProgressBtn"
-                    Style="{StaticResource RhythmBtnGhost}"
-                    Padding="14,10"
-                    Text="Progression"
-                    Clicked="OnTabProgress" />
-        </HorizontalStackLayout>
+        <controls:RhythmSectionTabs x:Name="StatsTabs" Grid.Row="0" />
 
         <RefreshView x:Name="StatsRefresh"
-                     Grid.Row="2">
+                     Grid.Row="1"
+                     Margin="0,12,0,0">
             <ScrollView>
-                <VerticalStackLayout Spacing="16"
+                <VerticalStackLayout Spacing="20"
                                      Padding="0,0,0,32">
 
-                    <VerticalStackLayout x:Name="OverviewPanel" Spacing="16">
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                            <Border Grid.Column="0" Padding="16" StrokeThickness="0"
-                                    BackgroundColor="{StaticResource RhythmSurface2}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="18" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="6">
-                                    <Label Style="{StaticResource RhythmCaption}" Text="Volume cumulé" />
-                                    <Label x:Name="OverviewVolumeLabel"
-                                           FontFamily="OpenSansSemibold"
-                                           FontSize="22"
-                                           TextColor="{StaticResource RhythmAccent}" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Column="1" Padding="16" StrokeThickness="0"
-                                    BackgroundColor="{StaticResource RhythmSurface2}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="18" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="6">
-                                    <Label Style="{StaticResource RhythmCaption}" Text="Séances terminées" />
-                                    <Label x:Name="OverviewCountLabel"
-                                           FontFamily="OpenSansSemibold"
-                                           FontSize="22"
-                                           TextColor="{StaticResource RhythmTextPrimary}" />
-                                </VerticalStackLayout>
-                            </Border>
-                        </Grid>
-                        <Border Padding="18"
-                                StrokeThickness="0"
-                                BackgroundColor="{StaticResource RhythmSurface1}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="18" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="8">
-                                <Label Style="{StaticResource RhythmCaption}" Text="Énergie estimée (cumul)" />
-                                <Label x:Name="OverviewKcalLabel"
+                    <VerticalStackLayout x:Name="OverviewPanel" Spacing="22">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource RhythmCaption}" Text="Volume cumulé" />
+                            <Label x:Name="OverviewVolumeLabel"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="32"
+                                   TextColor="{StaticResource RhythmAccent}" />
+                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource RhythmCaption}" Text="Séances terminées" />
+                                <Label x:Name="OverviewCountLabel"
                                        FontFamily="OpenSansSemibold"
-                                       FontSize="18"
+                                       FontSize="24"
                                        TextColor="{StaticResource RhythmTextPrimary}" />
                             </VerticalStackLayout>
-                        </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Style="{StaticResource RhythmCaption}" Text="Énergie estimée" />
+                                <Label x:Name="OverviewKcalLabel"
+                                       FontFamily="OpenSansSemibold"
+                                       FontSize="24"
+                                       TextColor="{StaticResource RhythmTextPrimary}" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout x:Name="SessionsPanel"
@@ -99,7 +55,7 @@
                                     Style="{StaticResource RhythmBtnGhost}"
                                     Padding="12,8"
                                     FontSize="13"
-                                    Text="Nettoyer l’historique"
+                                    Text="Nettoyer"
                                     Clicked="OnCleanHistoryClicked" />
                         </Grid>
                         <CollectionView x:Name="HistoryList"
@@ -107,30 +63,22 @@
                                         SelectionMode="Single">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Margin="0,0,0,12"
-                                            Padding="18"
-                                            StrokeThickness="0"
-                                            BackgroundColor="{StaticResource RhythmSurface1}">
-                                        <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="20" />
-                                        </Border.StrokeShape>
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="6">
-                                                <Label FontFamily="OpenSansSemibold"
-                                                       FontSize="17"
-                                                       LineBreakMode="TailTruncation"
-                                                       Text="{Binding SessionTitle}" />
-                                                <Label FontSize="13"
-                                                       TextColor="{StaticResource RhythmTextSecondary}"
-                                                       Text="{Binding SubLine}" />
-                                            </VerticalStackLayout>
-                                            <Label Grid.Column="1"
-                                                   VerticalOptions="Center"
-                                                   FontSize="18"
+                                    <Grid Padding="0,0,0,16" ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="4">
+                                            <Label FontFamily="OpenSansSemibold"
+                                                   FontSize="16"
+                                                   LineBreakMode="TailTruncation"
+                                                   Text="{Binding SessionTitle}" />
+                                            <Label FontSize="13"
                                                    TextColor="{StaticResource RhythmTextSecondary}"
-                                                   Text="›" />
-                                        </Grid>
-                                    </Border>
+                                                   Text="{Binding SubLine}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               FontSize="18"
+                                               TextColor="{StaticResource RhythmTextSecondary}"
+                                               Text="›" />
+                                    </Grid>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
@@ -140,17 +88,15 @@
                                          Spacing="12"
                                          IsVisible="False">
                         <Label Style="{StaticResource RhythmCaption}"
-                               Text="Chaque fois que tu termines une séance, on enregistre le plus lourd des poids utilisés pour l’exercice ce jour-là." />
-                        <VerticalStackLayout Spacing="8">
-                            <Label Style="{StaticResource RhythmCaption}"
-                                   Text="Exercice (données minimales : 1 séance terminée avec séries reps + kg)" />
-                            <controls:RhythmSearchField x:Name="ProgressExerciseSearch"
-                                                        Placeholder="Rechercher un exercice…"
-                                                        TextChanged="OnProgressExerciseSearchChanged" />
-                            <controls:RhythmOptionSelector x:Name="ProgressExerciseSelector"
-                                                           SemanticProperties.Hint="Sélectionne un mouvement"
-                                                           SelectedIndexChanged="OnProgressExerciseSelected" />
-                        </VerticalStackLayout>
+                               Text="Charge max du jour, pour chaque séance terminée." />
+                        <controls:RhythmSearchField x:Name="ProgressExerciseSearch"
+                                                    Placeholder="Rechercher un exercice…"
+                                                    TextChanged="OnProgressExerciseSearchChanged" />
+                        <controls:RhythmOptionSelector x:Name="ProgressExerciseSelector"
+                                                       Title="Exercice"
+                                                       Placeholder="Choisir un exercice"
+                                                       SemanticProperties.Hint="Sélectionne un mouvement"
+                                                       SelectedIndexChanged="OnProgressExerciseSelected" />
                         <GraphicsView x:Name="ProgressChart"
                                       BackgroundColor="{StaticResource RhythmBg}"
                                       HeightRequest="278" />

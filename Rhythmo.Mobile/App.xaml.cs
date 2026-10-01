@@ -26,7 +26,7 @@ public partial class App : Application
 	{
 		// Évite l’écran « Chargement… » bloqué : login visible tout de suite.
 		var window = new Window(new NavigationPage(new LoginPage()));
-		window.Resumed += (_, _) => _ = RefreshSessionAfterResumeAsync();
+		ServiceHelper.Services.GetRequiredService<SessionRecovery>().Attach(window);
 		_ = BootAsync();
 		return window;
 	}
@@ -45,6 +45,20 @@ public partial class App : Application
 			await UiNavigation.ShowAppShellAsync().ConfigureAwait(false);
 			UiNavigation.RunBootstrapInBackground();
 			await WorkoutDraftRecovery.TryPromptIfNeededAsync().ConfigureAwait(false);
+		}
+		catch (Exception ex) when (NetworkFault.IsTransient(ex))
+		{
+			CrashLogWriter.TryAppend(nameof(BootAsync) + ".Transient", ex);
+			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
+			if (auth.IsSignedIn)
+			{
+				await UiNavigation.ShowAppShellAsync().ConfigureAwait(false);
+				UiNavigation.RunBootstrapInBackground();
+				await WorkoutDraftRecovery.TryPromptIfNeededAsync().ConfigureAwait(false);
+				return;
+			}
+
+			await UiNavigation.ShowLoginAsync().ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
@@ -76,27 +90,25 @@ public partial class App : Application
 			if (profile is not null)
 				return true;
 		}
-		catch
+		catch (Exception ex) when (NetworkFault.IsTransient(ex))
 		{
-			// Session ou profil invalide.
+			// Réseau flaky au démarrage : garder la session locale et entrer dans l'app.
+			CrashLogWriter.TryAppend(nameof(TryRestoreSignedInUserAsync) + ".Transient", ex);
+			return auth.IsSignedIn;
+		}
+		catch (Exception ex) when (SupabaseAuthService.RequiresReauthentication(ex))
+		{
+			CrashLogWriter.TryAppend(nameof(TryRestoreSignedInUserAsync) + ".Auth", ex);
+		}
+		catch (Exception ex)
+		{
+			CrashLogWriter.TryAppend(nameof(TryRestoreSignedInUserAsync), ex);
+			if (auth.IsSignedIn)
+				return true;
 		}
 
 		await auth.SignOutAsync().ConfigureAwait(false);
 		return false;
-	}
-
-	static async Task RefreshSessionAfterResumeAsync()
-	{
-		try
-		{
-			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-			using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-			await auth.EnsureSessionFreshAsync(timeout.Token).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			CrashLogWriter.TryAppend(nameof(RefreshSessionAfterResumeAsync), ex);
-		}
 	}
 
 	protected override async void OnAppLinkRequestReceived(Uri uri) =>

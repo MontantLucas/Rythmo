@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.MorePage"
+             Title="⋯"
+             Shell.NavBarIsVisible="False">
+    <VerticalStackLayout Padding="{OnIdiom Phone='20,28', Default='32,36'}"
+                         Spacing="0"
+                         MaximumWidthRequest="520">
+        <Label Style="{StaticResource RhythmH2}"
+               Text="Compte"
+               Margin="4,0,0,18" />
+
+        <Border StrokeThickness="0"
+                BackgroundColor="{StaticResource RhythmSurface1}"
+                Padding="4,2">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="20" />
+            </Border.StrokeShape>
+            <VerticalStackLayout Spacing="0">
+                <Grid Padding="18,16"
+                      ColumnDefinitions="*,Auto">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnProfileTapped" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout Spacing="2">
+                        <Label FontFamily="OpenSansSemibold"
+                               FontSize="17"
+                               Text="Profil"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Label Style="{StaticResource RhythmCaption}"
+                               Text="Nom, biométrie, déconnexion" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="1"
+                           Text="›"
+                           FontSize="22"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource RhythmTextSecondary}" />
+                </Grid>
+                <BoxView HeightRequest="1"
+                         Color="#243040"
+                         Margin="18,0" />
+                <Grid Padding="18,16"
+                      ColumnDefinitions="*,Auto">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnStatsTapped" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout Spacing="2">
+                        <Label FontFamily="OpenSansSemibold"
+                               FontSize="17"
+                               Text="Stats"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Label Style="{StaticResource RhythmCaption}"
+                               Text="Historique, volume, progression" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="1"
+                           Text="›"
+                           FontSize="22"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource RhythmTextSecondary}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+    </VerticalStackLayout>
+</ContentPage>

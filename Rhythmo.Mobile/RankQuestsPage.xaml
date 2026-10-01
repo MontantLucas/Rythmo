@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.RankQuestsPage"
+             Title="Défis"
+             Shell.NavBarIsVisible="False">
+    <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto"
+              Padding="{OnIdiom Phone='20,16,20,8', Default='28,22,28,8'}"
+              ColumnSpacing="12">
+            <Label Style="{StaticResource RhythmH2}"
+                   Text="Défis"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="1"
+                    Style="{StaticResource RhythmBtnGhost}"
+                    Text="Retour"
+                    Padding="12,8"
+                    HorizontalOptions="End"
+                    VerticalOptions="Center"
+                    SemanticProperties.Hint="Revenir à l’accueil"
+                    Clicked="OnBackClicked" />
+        </Grid>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout x:Name="Root"
+                                 Padding="{OnIdiom Phone='20,8,20,28', Default='28,8,28,28'}"
+                                 Spacing="16" />
+        </ScrollView>
+    </Grid>
+</ContentPage>

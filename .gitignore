@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 Rhythmo.Mobile/Resources/Raw/supabase.env
+artifacts/
 bin/
 obj/
 *.user
