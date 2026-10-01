@@ -26,7 +26,7 @@ public partial class App : Application
 	{
 		// Évite l’écran « Chargement… » bloqué : login visible tout de suite.
 		var window = new Window(new NavigationPage(new LoginPage()));
-		window.Resumed += (_, _) => _ = RefreshSessionAfterResumeAsync();
+		ServiceHelper.Services.GetRequiredService<SessionRecovery>().Attach(window);
 		_ = BootAsync();
 		return window;
 	}
@@ -109,24 +109,6 @@ public partial class App : Application
 
 		await auth.SignOutAsync().ConfigureAwait(false);
 		return false;
-	}
-
-	static async Task RefreshSessionAfterResumeAsync()
-	{
-		try
-		{
-			var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-			using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-			await auth.EnsureSessionFreshAsync(timeout.Token).ConfigureAwait(false);
-		}
-		catch (Exception ex) when (NetworkFault.IsTransient(ex))
-		{
-			CrashLogWriter.TryAppend(nameof(RefreshSessionAfterResumeAsync) + ".Transient", ex);
-		}
-		catch (Exception ex)
-		{
-			CrashLogWriter.TryAppend(nameof(RefreshSessionAfterResumeAsync), ex);
-		}
 	}
 
 	protected override async void OnAppLinkRequestReceived(Uri uri) =>

@@ -11,9 +11,6 @@ public partial class SessionsPage : ContentPage
 {
 	public sealed record SessionCardVm(Guid Id, string Title, string ChipTags, string MetaLine);
 
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private readonly List<SessionCardVm> _allCards = [];
 
 	private Guid? _sheetSessionId;
@@ -24,6 +21,7 @@ public partial class SessionsPage : ContentPage
 	public SessionsPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, ReloadVisibleAsync);
 		HubTabs.SetItems(["Mes séances", "Exercices"]);
 		HubTabs.SelectedIndexChanged += OnHubTabChanged;
 		SessionsRefresh.Refreshing += async (_, _) =>
@@ -36,11 +34,13 @@ public partial class SessionsPage : ContentPage
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
-		if (HubTabs.SelectedIndex == 1 && _catalogPage is not null)
-			await _catalogPage.AppearAsync().ConfigureAwait(true);
-		else
-			await ReloadAsync().ConfigureAwait(true);
+		await UiGuard.RunAsync(this, ReloadVisibleAsync, nameof(ReloadAsync)).ConfigureAwait(true);
 	}
+
+	private Task ReloadVisibleAsync() =>
+		HubTabs.SelectedIndex == 1 && _catalogPage is not null
+			? _catalogPage.AppearAsync()
+			: ReloadCoreAsync();
 
 	private async void OnHubTabChanged(object? sender, int index) =>
 		await ShowHubAsync(index).ConfigureAwait(true);
@@ -70,24 +70,11 @@ public partial class SessionsPage : ContentPage
 			}
 		}
 
-		await _catalogPage.AppearAsync().ConfigureAwait(true);
+		var catalogPage = _catalogPage;
+		await UiGuard.RunAsync(this, () => catalogPage.AppearAsync(), nameof(CatalogPage)).ConfigureAwait(true);
 	}
 
-	private async Task ReloadAsync()
-	{
-		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-		try
-		{
-			await auth.TryWithSessionRetryAsync(async ct =>
-			{
-				await ReloadCoreAsync().ConfigureAwait(false);
-			}, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
-		}
-	}
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
 
 	private async Task ReloadCoreAsync()
 	{
@@ -211,7 +198,7 @@ public partial class SessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnFabAdHoc)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnFabAdHoc)).ConfigureAwait(false);
 		}
 	}
 
@@ -244,7 +231,7 @@ public partial class SessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnFabQuickStart)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnFabQuickStart)).ConfigureAwait(false);
 		}
 	}
 
@@ -288,7 +275,7 @@ public partial class SessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnSheetDuplicate)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnSheetDuplicate)).ConfigureAwait(false);
 		}
 	}
 
@@ -323,7 +310,7 @@ public partial class SessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnSheetDelete)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnSheetDelete)).ConfigureAwait(false);
 		}
 	}
 }

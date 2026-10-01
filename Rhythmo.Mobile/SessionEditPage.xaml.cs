@@ -15,9 +15,6 @@ public partial class SessionEditPage : ContentPage
 {
 	private sealed record SessionExerciseLineDraft(Guid LineId, Guid ExerciseId);
 
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private readonly List<SessionExerciseLineDraft> _orderedLines = [];
 	private readonly Dictionary<Guid, (int Sets, int Reps)> _targetsByLineId = [];
 	private readonly Dictionary<Guid, (Entry SetsEntry, Entry RepsEntry)> _entryBindings = new();
@@ -32,6 +29,7 @@ public partial class SessionEditPage : ContentPage
 	private Guid? _actionTargetLineId;
 
 	private bool _suppressAddSheetCategorySelector;
+	private bool _editorReady;
 
 	private const string CardAutomationHint = "session-ex-card";
 
@@ -46,6 +44,7 @@ public partial class SessionEditPage : ContentPage
 	public SessionEditPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, RebuildExerciseTogglesAsync);
 		SeedAddSheetCategoryPicker();
 		BackBtn.Clicked += (_, _) => _ = UiShellNavigate.GoAsync("..");
 		FinishBtn.Clicked += async (_, _) =>
@@ -161,10 +160,10 @@ public partial class SessionEditPage : ContentPage
 		}
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await RebuildExerciseTogglesAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, RebuildExerciseTogglesAsync, nameof(RebuildExerciseTogglesAsync));
 	}
 
 	protected override void OnDisappearing()
@@ -177,9 +176,10 @@ public partial class SessionEditPage : ContentPage
 
 	private async Task RebuildExerciseTogglesAsync()
 	{
-		try
-		{
-			_orderedLines.Clear();
+		if (_editorReady)
+			return;
+
+		_orderedLines.Clear();
 			_targetsByLineId.Clear();
 			_exercisesById.Clear();
 			_entryBindings.Clear();
@@ -230,11 +230,7 @@ public partial class SessionEditPage : ContentPage
 			RenderExerciseList();
 			if (AddSheetOverlay.IsVisible)
 				RefreshAddSheetCatalog();
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(RebuildExerciseTogglesAsync)).ConfigureAwait(false);
-		}
+			_editorReady = true;
 	}
 
 	private void CaptureTargetsFromBindings()
@@ -900,7 +896,7 @@ public partial class SessionEditPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(PersistSessionAsync)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(PersistSessionAsync)).ConfigureAwait(false);
 		}
 	}
 }

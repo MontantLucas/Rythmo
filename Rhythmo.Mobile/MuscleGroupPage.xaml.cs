@@ -11,17 +11,21 @@ public partial class MuscleGroupPage : ContentPage
 {
 	private string _groupId = "";
 
-	public MuscleGroupPage() => InitializeComponent();
+	public MuscleGroupPage()
+	{
+		InitializeComponent();
+		UiGuard.Watch(this, ReloadAsync);
+	}
 
 	public string GroupIdEncoded
 	{
 		set => _groupId = Uri.UnescapeDataString(value ?? "");
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 	}
 
 	private async Task ReloadAsync()

@@ -3,6 +3,7 @@ using Supabase.Gotrue;
 using Rhythmo.Mobile.Configuration;
 using Rhythmo.Mobile.Diagnostics;
 using Rhythmo.Mobile.Infrastructure;
+using Rhythmo.Shared.Resilience;
 using SupabaseClient = Supabase.Client;
 
 namespace Rhythmo.Mobile.Services;
@@ -36,46 +37,23 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 
 	public async Task EnsureSessionFreshAsync(CancellationToken ct = default)
 	{
-		Exception? last = null;
-		for (var attempt = 1; attempt <= 3; attempt++)
+		await _sessionGate.WaitAsync(ct).ConfigureAwait(false);
+		try
 		{
-			await _sessionGate.WaitAsync(ct).ConfigureAwait(false);
-			try
+			await EnsureInitializedCoreAsync().ConfigureAwait(false);
+			if (client.Auth.CurrentSession is null)
 			{
-				await EnsureInitializedCoreAsync().ConfigureAwait(false);
-				if (client.Auth.CurrentSession is null)
-				{
-					profiles.Clear();
-					return;
-				}
-
-				await client.Auth.RetrieveSessionAsync().ConfigureAwait(false);
-				BindProfile();
+				profiles.Clear();
 				return;
 			}
-			catch (Exception ex) when (NetworkFault.IsTransient(ex) && attempt < 3)
-			{
-				last = ex;
-			}
-			catch (Exception ex) when (RequiresReauthentication(ex))
-			{
-				throw;
-			}
-			catch (Exception ex) when (NetworkFault.IsTransient(ex))
-			{
-				last = ex;
-				break;
-			}
-			finally
-			{
-				_sessionGate.Release();
-			}
 
-			await Task.Delay(TimeSpan.FromSeconds(attempt), ct).ConfigureAwait(false);
+			await client.Auth.RetrieveSessionAsync().ConfigureAwait(false);
+			BindProfile();
 		}
-
-		if (last is not null)
-			throw last;
+		finally
+		{
+			_sessionGate.Release();
+		}
 	}
 
 	/// <summary>
@@ -89,7 +67,7 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 			await action(ct).ConfigureAwait(false);
 			return;
 		}
-		catch (Exception ex) when (NetworkFault.IsTransient(ex))
+		catch (Exception ex) when (NetworkFault.IsTransient(ex, ct))
 		{
 			CrashLogWriter.TryAppend($"{context}.Transient", ex);
 		}
@@ -103,7 +81,7 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 			await EnsureSessionFreshAsync(ct).ConfigureAwait(false);
 			await action(ct).ConfigureAwait(false);
 		}
-		catch (Exception ex) when (NetworkFault.IsTransient(ex))
+		catch (Exception ex) when (NetworkFault.IsTransient(ex, ct))
 		{
 			CrashLogWriter.TryAppend($"{context}.RetryStillTransient", ex);
 		}
@@ -118,7 +96,7 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 		{
 			return await action(ct).ConfigureAwait(false);
 		}
-		catch (Exception ex) when (NetworkFault.IsTransient(ex))
+		catch (Exception ex) when (NetworkFault.IsTransient(ex, ct))
 		{
 			CrashLogWriter.TryAppend($"{context}.Transient", ex);
 		}
@@ -132,7 +110,7 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 			await EnsureSessionFreshAsync(ct).ConfigureAwait(false);
 			return await action(ct).ConfigureAwait(false);
 		}
-		catch (Exception ex) when (NetworkFault.IsTransient(ex))
+		catch (Exception ex) when (NetworkFault.IsTransient(ex, ct))
 		{
 			CrashLogWriter.TryAppend($"{context}.RetryStillTransient", ex);
 			return default;
@@ -347,6 +325,9 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 
 	public static string FormatAuthError(Exception ex)
 	{
+		if (FaultClassifier.Classify(ex) == FaultKind.Transient)
+			return "Pas de réseau. Réessaie dans un instant.";
+
 		if (IsMagicLinkRateLimited(ex))
 			return "Plus de lien magique disponible aujourd’hui. Connecte-toi avec ton mot de passe.";
 
@@ -373,44 +354,8 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 	/// <summary>
 	/// Vraie session morte (pas une panne réseau). Les timeouts / refresh réseau ne matchent pas.
 	/// </summary>
-	public static bool RequiresReauthentication(Exception ex)
-	{
-		if (NetworkFault.IsTransient(ex))
-			return false;
-
-		for (var current = ex; current is not null; current = current.InnerException)
-		{
-			var msg = current.Message;
-			if (string.IsNullOrWhiteSpace(msg))
-				continue;
-
-			if (msg.Contains("invalid grant", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("jwt expired", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("session expir", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("Session expirée", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("not authenticated", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("refresh_token_not_found", StringComparison.OrdinalIgnoreCase)
-			    || msg.Contains("Invalid Refresh Token", StringComparison.OrdinalIgnoreCase)
-			    || (msg.Contains("JWT", StringComparison.Ordinal)
-			        && msg.Contains("expired", StringComparison.OrdinalIgnoreCase))
-			    || IsAuthStatusCode(msg))
-				return true;
-		}
-
-		return false;
-	}
-
-	static bool IsAuthStatusCode(string msg)
-	{
-		if (!msg.Contains("401", StringComparison.Ordinal) && !msg.Contains("403", StringComparison.Ordinal))
-			return false;
-
-		return msg.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)
-		       || msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase)
-		       || msg.Contains("jwt", StringComparison.OrdinalIgnoreCase)
-		       || msg.Contains("bearer", StringComparison.OrdinalIgnoreCase)
-		       || msg.Contains("auth", StringComparison.OrdinalIgnoreCase);
-	}
+	public static bool RequiresReauthentication(Exception ex) =>
+		FaultClassifier.Classify(ex) == FaultKind.Reauth;
 
 	public async Task SignOutAsync()
 	{

@@ -8,16 +8,20 @@ namespace Rhythmo.Mobile;
 
 public partial class RankQuestsPage : ContentPage
 {
-	public RankQuestsPage() => InitializeComponent();
+	public RankQuestsPage()
+	{
+		InitializeComponent();
+		UiGuard.Watch(this, ReloadAsync);
+	}
 
 	private async void OnBackClicked(object? sender, EventArgs e) =>
 		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(true);
-		await ReloadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, () => QuestResumeDialog.TryPromptIfNeededAsync(), nameof(QuestResumeDialog));
+		_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 	}
 
 	private async Task ReloadAsync()

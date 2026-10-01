@@ -10,7 +10,6 @@ public partial class FriendsPage : ContentPage
 	private readonly IRhythmoRepository _repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 	private readonly SocialHubService _hub =
 		ServiceHelper.Services.GetRequiredService<SocialHubService>();
-	private readonly IDevErrorPresenter _dev = ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
 
 	private LeaderboardPeriod _period = LeaderboardPeriod.Week;
 	private SocialHubSnapshot? _snapshot;
@@ -19,7 +18,8 @@ public partial class FriendsPage : ContentPage
 	public FriendsPage()
 	{
 		InitializeComponent();
-		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
+		UiGuard.Watch(this, ReloadCoreAsync);
+		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
 		HubTabs.SetItems(["Amis", "Classement"]);
 		HubTabs.SelectedIndexChanged += (_, idx) => ShowHub(idx);
 		FriendsRefresh.Refreshing += async (_, _) =>
@@ -30,34 +30,24 @@ public partial class FriendsPage : ContentPage
 		};
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		_ = ReloadAsync();
 	}
 
-	private async Task ReloadAsync()
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
+
+	private async Task ReloadCoreAsync()
 	{
 		var generation = Interlocked.Increment(ref _reloadGeneration);
-		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-		try
-		{
-			await auth.TryWithSessionRetryAsync(async ct =>
-			{
-				var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-				var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(false);
-				if (generation != _reloadGeneration)
-					return;
+		var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+		var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(false);
+		if (generation != _reloadGeneration)
+			return;
 
-				_snapshot = snapshot;
-				await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(false);
-			}, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			if (generation == _reloadGeneration)
-				await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
+		_snapshot = snapshot;
+		await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(false);
 	}
 
 	private void RenderAll()

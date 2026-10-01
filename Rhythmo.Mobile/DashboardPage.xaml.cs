@@ -9,13 +9,11 @@ namespace Rhythmo.Mobile;
 
 public partial class DashboardPage : ContentPage
 {
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	public DashboardPage()
 	{
 		InitializeComponent();
-		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
+		UiGuard.Watch(this, ReloadCoreAsync);
+		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
 		DashRefresh.Refreshing += async (_, _) =>
 		{
 			await ReloadAsync().ConfigureAwait(true);
@@ -23,30 +21,26 @@ public partial class DashboardPage : ContentPage
 		};
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		UiNavigation.RunBootstrapInBackground();
-		await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(true);
-		await ReloadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, AppearAsync, nameof(ReloadAsync));
 	}
 
-	private async Task ReloadAsync()
+	private async Task AppearAsync()
 	{
-		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-		try
-		{
-			await auth.TryWithSessionRetryAsync(async ct =>
-			{
-				var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-				var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-				await LoadBodyAsync(repo, profileId).ConfigureAwait(false);
-			}, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
-		}
+		await QuestResumeDialog.TryPromptIfNeededAsync().ConfigureAwait(false);
+		await ReloadCoreAsync().ConfigureAwait(false);
+	}
+
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
+
+	private async Task ReloadCoreAsync()
+	{
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+		await LoadBodyAsync(repo, profileId).ConfigureAwait(false);
 	}
 
 	private async Task LoadBodyAsync(IRhythmoRepository repo, Guid profileId)

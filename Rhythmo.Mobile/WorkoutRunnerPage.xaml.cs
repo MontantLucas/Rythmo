@@ -55,9 +55,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 	private readonly WorkoutDraftStore _draftStore =
 		ServiceHelper.Services.GetRequiredService<WorkoutDraftStore>();
 
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	public string SessionIdEncoded
 	{
 		set
@@ -99,6 +96,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 	public WorkoutRunnerPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, RefreshAsync);
 		AddSheetSearchBar.TextChanged += OnAddSheetSearchChanged;
 	}
 
@@ -152,18 +150,16 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		double Calories,
 		double Minutes);
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await RefreshAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, RefreshAsync, nameof(RefreshAsync));
 	}
 
 	private async Task RefreshAsync()
 	{
-		try
-		{
-			if (_sessionUiReady)
-				return;
+		if (_sessionUiReady)
+			return;
 
 			_blocks.Clear();
 			_currentExerciseIndex = 0;
@@ -335,11 +331,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			if (!_isAdHoc && _blocks.Count == 0)
 				await DisplayAlertAsync("Séance", "Ajoute au moins un exercice depuis l’éditeur.", "OK")
 					.ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(RefreshAsync)).ConfigureAwait(false);
-		}
 	}
 
 	private void DisplayExercise(int index)
@@ -753,7 +744,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		{
 			if (!_finalizeQueued)
 				ResetFinalizeButton();
-			await _dev.TryShowSafeAsync(ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnFinalizeClicked)).ConfigureAwait(true);
 		}
 	}
 

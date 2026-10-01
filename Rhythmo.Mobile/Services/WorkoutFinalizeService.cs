@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Threading.Channels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Storage;
 using Rhythmo.Mobile.Data;
 using Rhythmo.Mobile.Diagnostics;
@@ -8,6 +9,7 @@ using Rhythmo.Mobile.Social;
 using Rhythmo.Mobile.Theme;
 using Rhythmo.Shared.Contracts;
 using Rhythmo.Shared.Ranking;
+using Rhythmo.Shared.Resilience;
 
 namespace Rhythmo.Mobile.Services;
 
@@ -179,7 +181,7 @@ public sealed class WorkoutFinalizeService
 			var saved = false;
 			Exception? last = null;
 			var needsReauth = false;
-			for (var attempt = 1; attempt <= 3 && !saved; attempt++)
+			for (var attempt = 1; attempt <= 4 && !saved; attempt++)
 			{
 				try
 				{
@@ -198,10 +200,12 @@ public sealed class WorkoutFinalizeService
 				catch (Exception ex)
 				{
 					last = ex;
-					if (attempt >= 3 || !IsTransient(ex))
+					if (attempt >= 4 || FaultClassifier.Classify(ex) != FaultKind.Transient)
 						break;
 
-					await Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ConfigureAwait(false);
+					var wait = ReconnectPolicy.NextDelay(attempt, hasInternet: true, wake: false);
+					if (wait is { } delay && delay > TimeSpan.Zero)
+						await Task.Delay(delay).ConfigureAwait(false);
 					job = TryLoad(id) ?? job;
 				}
 			}
@@ -213,6 +217,22 @@ public sealed class WorkoutFinalizeService
 				CrashLogWriter.TryAppend(nameof(WorkoutFinalizeService), last);
 
 			Forget(id);
+			if (last is not null
+			    && !needsReauth
+			    && FaultClassifier.Classify(last) == FaultKind.Transient)
+			{
+				try
+				{
+					ServiceHelper.Services.GetService<SessionRecovery>()?.FollowUp();
+				}
+				catch (Exception followEx)
+				{
+					CrashLogWriter.TryAppend(nameof(WorkoutFinalizeService) + ".FollowUp", followEx);
+				}
+
+				continue;
+			}
+
 			Publish(new WorkoutFinalizeUpdate
 			{
 				Phase = WorkoutFinalizePhase.Failed,

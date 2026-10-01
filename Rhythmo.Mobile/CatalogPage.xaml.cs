@@ -46,6 +46,7 @@ public partial class CatalogPage : ContentPage
 	public CatalogPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, AppearAsync);
 	}
 
 	public void SetEmbedded(bool embedded)
@@ -68,10 +69,10 @@ public partial class CatalogPage : ContentPage
 		await ReloadDatabaseAsync().ConfigureAwait(false);
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await AppearAsync().ConfigureAwait(false);
+		_ = UiGuard.RunAsync(this, AppearAsync, nameof(AppearAsync));
 	}
 
 	private async Task ReloadDatabaseAsync()
@@ -316,8 +317,7 @@ public partial class CatalogPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>()
-				.TryShowSafeAsync(ex, nameof(OnStartAdHocClicked)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnStartAdHocClicked)).ConfigureAwait(false);
 		}
 	}
 
@@ -332,8 +332,7 @@ public partial class CatalogPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>()
-				.TryShowSafeAsync(ex, nameof(OnStartFromExerciseClicked)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnStartFromExerciseClicked)).ConfigureAwait(false);
 		}
 	}
 }

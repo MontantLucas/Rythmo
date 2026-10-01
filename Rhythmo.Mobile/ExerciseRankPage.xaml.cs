@@ -10,17 +10,21 @@ public partial class ExerciseRankPage : ContentPage
 {
 	private Guid _exerciseId;
 
-	public ExerciseRankPage() => InitializeComponent();
+	public ExerciseRankPage()
+	{
+		InitializeComponent();
+		UiGuard.Watch(this, ReloadAsync);
+	}
 
 	public string ExerciseIdEncoded
 	{
 		set => _exerciseId = Guid.TryParse(Uri.UnescapeDataString(value ?? ""), out var id) ? id : Guid.Empty;
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 	}
 
 	private async Task ReloadAsync()

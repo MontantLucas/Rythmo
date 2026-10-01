@@ -15,9 +15,6 @@ public partial class StatsPage : ContentPage
 	private const string CleanPickAll = "Tout vider";
 	private const string CleanPickOrphans = "Vider uniquement les séances qui n’existent plus";
 
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private readonly WeightProgressDrawable _progressDrawable = new();
 
 	private int _tabIndex;
@@ -29,7 +26,8 @@ public partial class StatsPage : ContentPage
 	public StatsPage()
 	{
 		InitializeComponent();
-		WorkoutFinalizeRefresh.Bind(this, ReloadAsync);
+		UiGuard.Watch(this, ReloadCoreAsync);
+		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
 		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
 		ProgressChart.Drawable = _progressDrawable;
 		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
@@ -50,21 +48,7 @@ public partial class StatsPage : ContentPage
 		await ReloadAsync().ConfigureAwait(true);
 	}
 
-	private async Task ReloadAsync()
-	{
-		var auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
-		try
-		{
-			await auth.TryWithSessionRetryAsync(async ct =>
-			{
-				await ReloadCoreAsync().ConfigureAwait(false);
-			}, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(false);
-		}
-	}
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
 
 	private async Task ReloadCoreAsync()
 	{
@@ -119,7 +103,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(HistoryListOnSelectionChanged)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(HistoryListOnSelectionChanged)).ConfigureAwait(true);
 		}
 	}
 
@@ -207,7 +191,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnCleanHistoryClicked)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnCleanHistoryClicked)).ConfigureAwait(false);
 		}
 
 		await ReloadAsync().ConfigureAwait(false);
@@ -234,7 +218,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnProgressExerciseSelected)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSelected)).ConfigureAwait(true);
 		}
 	}
 
@@ -256,7 +240,7 @@ public partial class StatsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
 		}
 	}
 

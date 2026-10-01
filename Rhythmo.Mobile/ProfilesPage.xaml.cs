@@ -7,24 +7,28 @@ namespace Rhythmo.Mobile;
 
 public partial class ProfilesPage : ContentPage
 {
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private readonly IRhythmoRepository _repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 	private readonly SupabaseAuthService _auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
+	private bool _profileLoaded;
 
 	public ProfilesPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, () => LoadEditorCoreAsync(CurrentProfileId()));
 		SexPicker.ItemsSource = new[] { "Homme", "Femme" };
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await LoadEditorAsync(ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get())
-			.ConfigureAwait(true);
+		_ = LoadEditorAsync(CurrentProfileId());
 	}
+
+	private Guid CurrentProfileId() =>
+		_auth.CurrentUserId ?? ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+
+	private Task LoadEditorAsync(Guid profileId) =>
+		UiGuard.RunAsync(this, () => LoadEditorCoreAsync(profileId), nameof(LoadEditorAsync));
 
 	private async void OnSaveProfileClicked(object? sender, EventArgs e)
 	{
@@ -39,36 +43,33 @@ public partial class ProfilesPage : ContentPage
 		await UiNavigation.ShowLoginAsync().ConfigureAwait(true);
 	}
 
-	private async Task LoadEditorAsync(Guid profileId)
+	private async Task LoadEditorCoreAsync(Guid profileId)
 	{
-		try
+		if (_profileLoaded)
+			return;
+
+		var effectiveId = _auth.CurrentUserId ?? profileId;
+		var row = await _repo.GetProfileAsync(effectiveId).ConfigureAwait(true);
+		if (row is null)
 		{
-			var effectiveId = _auth.CurrentUserId ?? profileId;
-			var row = await _repo.GetProfileAsync(effectiveId).ConfigureAwait(true);
-			if (row is null)
+			row = new ProfileRow
 			{
-				row = new ProfileRow
-				{
-					Id = effectiveId,
-					DisplayName = "Athlète",
-					BiologicalSex = BiologicalSex.Male,
-					WeightKg = 75
-				};
-				await _repo.SaveProfileAsync(row).ConfigureAwait(true);
-			}
-			DisplayNameEntry.Text = row.DisplayName;
-			SexPicker.SelectedIndex = row.BiologicalSex == BiologicalSex.Male ? 0 : 1;
-			WeightEntry.Text = row.WeightKg.ToString(System.Globalization.CultureInfo.InvariantCulture);
-			HeightEntry.Text =
-				row.HeightCm?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
-			AgeEntry.Text = row.AgeYears?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
-			ProfileNameLabel.Text = string.IsNullOrWhiteSpace(row.DisplayName) ? "Athlète" : row.DisplayName;
-			ProfileMetaLabel.Text = BuildMeta(row);
+				Id = effectiveId,
+				DisplayName = "Athlète",
+				BiologicalSex = BiologicalSex.Male,
+				WeightKg = 75
+			};
+			await _repo.SaveProfileAsync(row).ConfigureAwait(true);
 		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(LoadEditorAsync)).ConfigureAwait(false);
-		}
+		DisplayNameEntry.Text = row.DisplayName;
+		SexPicker.SelectedIndex = row.BiologicalSex == BiologicalSex.Male ? 0 : 1;
+		WeightEntry.Text = row.WeightKg.ToString(System.Globalization.CultureInfo.InvariantCulture);
+		HeightEntry.Text =
+			row.HeightCm?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+		AgeEntry.Text = row.AgeYears?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+		ProfileNameLabel.Text = string.IsNullOrWhiteSpace(row.DisplayName) ? "Athlète" : row.DisplayName;
+		ProfileMetaLabel.Text = BuildMeta(row);
+		_profileLoaded = true;
 	}
 
 	private static string BuildMeta(ProfileRow row)
@@ -118,14 +119,15 @@ public partial class ProfilesPage : ContentPage
 			}
 			catch (Exception rankEx) when (rankEx is not OperationCanceledException)
 			{
-				await _dev.TryShowSafeAsync(rankEx, nameof(SaveEditorAsync) + ".Rank").ConfigureAwait(false);
+				await UiGuard.ReportAsync(this, rankEx, nameof(SaveEditorAsync) + ".Rank").ConfigureAwait(false);
 			}
+			_profileLoaded = false;
 			await LoadEditorAsync(row.Id).ConfigureAwait(true);
 			await RhythmSuccessDialog.ShowAsync(this, "Profil enregistré avec succès").ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(SaveEditorAsync)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(SaveEditorAsync)).ConfigureAwait(false);
 		}
 	}
 }

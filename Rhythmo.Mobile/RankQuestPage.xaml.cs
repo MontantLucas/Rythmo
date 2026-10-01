@@ -37,6 +37,7 @@ public partial class RankQuestPage : ContentPage
 	public RankQuestPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, ReloadAfterReconnectAsync);
 		Shell.SetBackButtonBehavior(this, new BackButtonBehavior
 		{
 			Command = new Command(async () => await LeaveAsync())
@@ -92,7 +93,7 @@ public partial class RankQuestPage : ContentPage
 		set => _exerciseId = Guid.TryParse(Uri.UnescapeDataString(value ?? ""), out var id) ? id : Guid.Empty;
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		if (_attempt is not null)
@@ -104,7 +105,15 @@ public partial class RankQuestPage : ContentPage
 		if (_loaded && _prep is not null)
 			return;
 
-		await LoadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, LoadAsync, nameof(LoadAsync));
+	}
+
+	private Task ReloadAfterReconnectAsync()
+	{
+		if (_attempt is not null || (_loaded && _prep is not null))
+			return Task.CompletedTask;
+
+		return LoadAsync();
 	}
 
 	protected override void OnDisappearing()
@@ -286,6 +295,10 @@ public partial class RankQuestPage : ContentPage
 			ShowActive();
 			StartTimer();
 		}
+		catch (Exception ex)
+		{
+			await UiGuard.ReportAsync(this, ex, nameof(OnStartQuestClicked)).ConfigureAwait(true);
+		}
 		finally
 		{
 			StartQuestBtn.IsEnabled = true;
@@ -434,6 +447,10 @@ public partial class RankQuestPage : ContentPage
 			await RhythmSuccessDialog.ShowAsync(this, "Rang validé. Prochaine quête demain.").ConfigureAwait(true);
 			await ExitAsync().ConfigureAwait(false);
 		}
+		catch (Exception ex)
+		{
+			await UiGuard.ReportAsync(this, ex, nameof(OnSuccessClicked)).ConfigureAwait(true);
+		}
 		finally
 		{
 			_settling = false;
@@ -444,11 +461,19 @@ public partial class RankQuestPage : ContentPage
 	{
 		if (_attempt is null)
 			return;
-		_timer?.Stop();
-		await ServiceHelper.Services.GetRequiredService<RankQuestService>()
-			.AbandonAsync(_attempt).ConfigureAwait(true);
-		_attempt = null;
-		await ExitAsync().ConfigureAwait(false);
+
+		try
+		{
+			_timer?.Stop();
+			await ServiceHelper.Services.GetRequiredService<RankQuestService>()
+				.AbandonAsync(_attempt).ConfigureAwait(true);
+			_attempt = null;
+			await ExitAsync().ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			await UiGuard.ReportAsync(this, ex, nameof(OnAbandonClicked)).ConfigureAwait(true);
+		}
 	}
 
 	private bool TryReadSet(out double kg, out int reps)

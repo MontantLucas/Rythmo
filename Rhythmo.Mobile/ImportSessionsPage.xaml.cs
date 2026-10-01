@@ -17,7 +17,6 @@ public partial class ImportSessionsPage : ContentPage
 	}
 
 	private readonly IRhythmoRepository _repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-	private readonly IDevErrorPresenter _dev = ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
 
 	private List<UserPickVm> _users = [];
 	private List<SessionPickVm> _sessions = [];
@@ -27,36 +26,30 @@ public partial class ImportSessionsPage : ContentPage
 	public ImportSessionsPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, LoadUsersAsync);
 		BackBtn.Clicked += (_, _) => _ = UiShellNavigate.GoAsync("..");
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await LoadUsersAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, LoadUsersAsync, nameof(LoadUsersAsync));
 	}
 
 	private async Task LoadUsersAsync()
 	{
-		try
+		_users = (await _repo.ListImportableUsersAsync().ConfigureAwait(true))
+			.Select(u => new UserPickVm(u.UserId, u.DisplayName))
+			.ToList();
+		UserPicker.ItemsSource = _users;
+		UserPicker.SelectedIndex = -1;
+		if (_users.Count == 0)
 		{
-			_users = (await _repo.ListImportableUsersAsync().ConfigureAwait(true))
-				.Select(u => new UserPickVm(u.UserId, u.DisplayName))
-				.ToList();
-			UserPicker.ItemsSource = _users;
-			UserPicker.SelectedIndex = -1;
-			if (_users.Count == 0)
-			{
-				SessionsList.ItemsSource = null;
-				await DisplayAlertAsync(
-					"Importer",
-					"Aucun autre utilisateur disponible pour l’import.",
-					"OK").ConfigureAwait(true);
-			}
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(LoadUsersAsync)).ConfigureAwait(false);
+			SessionsList.ItemsSource = null;
+			await DisplayAlertAsync(
+				"Importer",
+				"Aucun autre utilisateur disponible pour l’import.",
+				"OK").ConfigureAwait(true);
 		}
 	}
 
@@ -89,7 +82,7 @@ public partial class ImportSessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnUserSelected)).ConfigureAwait(false);
+			await UiGuard.ReportAsync(this, ex, nameof(OnUserSelected)).ConfigureAwait(false);
 		}
 	}
 
@@ -128,7 +121,7 @@ public partial class ImportSessionsPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await DisplayAlertAsync("Importer", ex.Message, "OK").ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnImportClicked)).ConfigureAwait(true);
 		}
 		finally
 		{

@@ -10,17 +10,21 @@ public partial class MusclePage : ContentPage
 {
 	private string _muscleId = "";
 
-	public MusclePage() => InitializeComponent();
+	public MusclePage()
+	{
+		InitializeComponent();
+		UiGuard.Watch(this, ReloadAsync);
+	}
 
 	public string MuscleIdEncoded
 	{
 		set => _muscleId = Uri.UnescapeDataString(value ?? "");
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 	}
 
 	private async Task ReloadAsync()
