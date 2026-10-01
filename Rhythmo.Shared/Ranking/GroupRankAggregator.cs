@@ -21,8 +21,8 @@ public static class GroupRankAggregator
 		IReadOnlyList<(int? ValidatedRank, double Coefficient)> muscles)
 	{
 		var total = muscles.Count;
-		double weighted = 0;
-		double coeffSum = 0;
+		decimal weighted = 0;
+		decimal coeffSum = 0;
 		var evaluated = 0;
 
 		foreach (var (validated, coeff) in muscles)
@@ -30,15 +30,21 @@ public static class GroupRankAggregator
 			if (validated is null || coeff <= 0)
 				continue;
 			evaluated++;
-			weighted += validated.Value * coeff;
-			coeffSum += coeff;
+			// decimal : 6×0,34 + 6×0,28 / 0,62 vaut 6. En double ça tombe à 5,999… et le floor affiche R5.
+			var weight = (decimal)coeff;
+			weighted += validated.Value * weight;
+			coeffSum += weight;
 		}
 
 		if (evaluated == 0 || coeffSum <= 0)
 			return new GroupRankResult(groupId, null, null, 0, total);
 
-		var raw = weighted / coeffSum;
-		var displayed = Math.Clamp((int)Math.Floor(raw), ExerciseRankCalculator.MinRank, ExerciseRankCalculator.MaxRank);
+		var rawDecimal = weighted / coeffSum;
+		var raw = (double)rawDecimal;
+		var displayed = Math.Clamp(
+			(int)Math.Floor(rawDecimal),
+			ExerciseRankCalculator.MinRank,
+			ExerciseRankCalculator.MaxRank);
 		return new GroupRankResult(groupId, raw, displayed, evaluated, total);
 	}
 }

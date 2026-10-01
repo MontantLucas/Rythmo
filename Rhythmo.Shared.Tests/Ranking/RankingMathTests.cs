@@ -187,6 +187,37 @@ public class GroupRankAggregatorTests
 		Assert.Equal(4, result.ValidatedRank);
 		Assert.Equal(1, result.EvaluatedMuscles);
 	}
+
+	[Fact]
+	public void Shoulders_at_R6_stay_R6_when_side_delt_is_unranked()
+	{
+		var result = GroupRankAggregator.Aggregate(MuscleIds.Shoulders,
+		[
+			(6, MuscleIds.V1Coefficients[MuscleIds.FrontDelt]),
+			(null, MuscleIds.V1Coefficients[MuscleIds.SideDelt]),
+			(6, MuscleIds.V1Coefficients[MuscleIds.RearDelt])
+		]);
+		Assert.Equal(2, result.EvaluatedMuscles);
+		Assert.Equal(6d, result.ValidatedRaw);
+		Assert.Equal(6, result.ValidatedRank);
+	}
+
+	[Theory]
+	[InlineData(1)]
+	[InlineData(6)]
+	[InlineData(10)]
+	public void Same_rank_on_evaluated_muscles_is_not_floored_down(int rank)
+	{
+		foreach (var group in MuscleIds.Groups)
+		{
+			var members = MuscleIds.Muscles.Where(m => m.GroupId == group.Id).ToList();
+			var inputs = members.Select((m, i) => (
+				(int?)(members.Count > 1 && i == members.Count - 1 ? null : rank),
+				MuscleIds.V1Coefficients[m.Id])).ToList();
+			var result = GroupRankAggregator.Aggregate(group.Id, inputs);
+			Assert.Equal(rank, result.ValidatedRank);
+		}
+	}
 }
 
 public class QuestRulesTests
