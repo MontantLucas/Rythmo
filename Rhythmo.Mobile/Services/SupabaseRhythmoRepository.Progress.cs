@@ -65,8 +65,11 @@ public sealed partial class SupabaseRhythmoRepository
 	public async Task<IReadOnlyList<WeeklyChallengeAssignmentRow>> ListChallengeAssignmentsAsync(
 		Guid profileId, int isoYear, int isoWeek, CancellationToken ct = default)
 	{
+		// Trois Where combinés deviennent un and() imbriqué, que PostgREST refuse (400).
 		var res = await Client.From<WeeklyChallengeAssignmentRecord>()
-			.Where(a => a.ProfileId == profileId && a.IsoYear == isoYear && a.IsoWeek == isoWeek)
+			.Filter("profile_id", Supabase.Postgrest.Constants.Operator.Equals, profileId.ToString())
+			.Filter("iso_year", Supabase.Postgrest.Constants.Operator.Equals, isoYear.ToString())
+			.Filter("iso_week", Supabase.Postgrest.Constants.Operator.Equals, isoWeek.ToString())
 			.Get(ct)
 			.ConfigureAwait(false);
 		return res.Models?.Select(ToAssignment).ToList() ?? [];
