@@ -100,24 +100,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		AddSheetSearchBar.TextChanged += OnAddSheetSearchChanged;
 	}
 
-	private async void OnAbandonSessionClicked(object? sender, EventArgs e)
-	{
-		var abandon = await DisplayAlertAsync(
-			"Annuler la séance ?",
-			"Tu quitteras sans enregistrer de résultat (pas d’historique ni de mise à jour des charges).",
-			"Oui, annuler",
-			"Non").ConfigureAwait(true);
-
-		if (!abandon)
-			return;
-
-		var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		lock (_draftGate)
-			_draftStore.Clear(activeProfileId);
-
-		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
-	}
-
 	private sealed class ExerciseUi
 	{
 		public required Guid ExerciseId { get; init; }
@@ -262,7 +244,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			await MainThread.InvokeOnMainThreadAsync(() =>
 			{
 				AddExerciseBtn.IsVisible = _isAdHoc;
-				RemoveExerciseBtn.IsVisible = false;
+				Grid.SetColumnSpan(AddSetBtn, _isAdHoc ? 1 : 2);
 				SeedAddSheetCategoryPicker();
 
 				if (_isAdHoc)
@@ -365,7 +347,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		PrevExerciseBtn.IsEnabled = index > 0;
 		NextExerciseBtn.IsEnabled = index < _blocks.Count - 1;
 		AddSetBtn.IsEnabled = true;
-		RemoveExerciseBtn.IsVisible = _isAdHoc;
 
 		ActiveExerciseRoot.Children.Clear();
 		ActiveExerciseRoot.Children.Add(BuildSetsHeader());
@@ -385,7 +366,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		PrevExerciseBtn.IsEnabled = false;
 		NextExerciseBtn.IsEnabled = false;
 		AddSetBtn.IsEnabled = false;
-		RemoveExerciseBtn.IsVisible = false;
 
 		ActiveExerciseRoot.Children.Clear();
 		ActiveExerciseRoot.Children.Add(new Label
@@ -904,33 +884,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		_catalogSearchDebounceCts?.Dispose();
 		_catalogSearchDebounceCts = null;
 		base.OnDisappearing();
-	}
-
-	private async void OnRemoveExerciseClicked(object? sender, EventArgs e)
-	{
-		if (!_isAdHoc || _blocks.Count == 0)
-			return;
-
-		var blk = _blocks[_currentExerciseIndex];
-		var confirm = await DisplayAlertAsync(
-			"Retirer cet exercice ?",
-			$"« {blk.Title} » sera enlevé de cette séance à la volée (pas encore enregistré).",
-			"Retirer",
-			"Annuler").ConfigureAwait(true);
-		if (!confirm)
-			return;
-
-		_blocks.RemoveAt(_currentExerciseIndex);
-		var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		if (_blocks.Count == 0)
-		{
-			ShowEmptyAdHocState();
-			PersistDraftNow(profileId);
-			return;
-		}
-
-		DisplayExercise(Math.Min(_currentExerciseIndex, _blocks.Count - 1));
-		PersistDraftNow(profileId);
 	}
 
 	private void OnAddExerciseClicked(object? sender, EventArgs e) => OpenAddExerciseSheet();

@@ -5,23 +5,11 @@
              x:Class="Rhythmo.Mobile.WorkoutRunnerPage"
              Title="Séance en cours">
     <Grid>
-        <Grid Padding="{OnIdiom Phone='18', Default='26'}"
+        <Grid Padding="{OnIdiom Phone='18,12', Default='26,16'}"
               RowDefinitions="Auto,*,Auto"
-              RowSpacing="18">
+              RowSpacing="10">
 
-            <VerticalStackLayout Grid.Row="0" Spacing="12">
-                <HorizontalStackLayout HorizontalOptions="End" Spacing="8">
-                    <Button x:Name="RemoveExerciseBtn"
-                            Style="{StaticResource RhythmBtnGhost}"
-                            Text="Retirer"
-                            IsVisible="False"
-                            SemanticProperties.Hint="Retirer cet exercice de la séance à la volée"
-                            Clicked="OnRemoveExerciseClicked" />
-                    <Button Style="{StaticResource RhythmBtnGhost}"
-                            Text="Annuler"
-                            SemanticProperties.Hint="Quitter cette séance sans enregistrer"
-                            Clicked="OnAbandonSessionClicked" />
-                </HorizontalStackLayout>
+            <VerticalStackLayout Grid.Row="0" Spacing="8">
                 <Label x:Name="SessionMetaSmall"
                        Style="{StaticResource RhythmCaption}"
                        LineBreakMode="TailTruncation" />
@@ -65,32 +53,57 @@
             </ScrollView>
 
             <VerticalStackLayout Grid.Row="2"
-                                 Spacing="14">
-                <Button x:Name="AddSetBtn"
-                        Style="{StaticResource RhythmBtnSecondary}"
-                        Text="+ série"
-                        Clicked="OnAddSetClicked" />
-                <Button x:Name="AddExerciseBtn"
-                        Style="{StaticResource RhythmBtnSecondary}"
-                        Text="+ exercice"
-                        IsVisible="False"
-                        SemanticProperties.Hint="Ajouter un exercice à cette séance à la volée"
-                        Clicked="OnAddExerciseClicked" />
+                                 Spacing="8">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button x:Name="AddSetBtn"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
+                            Style="{StaticResource RhythmBtnSecondary}"
+                            Text="+ série"
+                            FontSize="13"
+                            Padding="10,4"
+                            MinimumHeightRequest="36"
+                            CornerRadius="12"
+                            Clicked="OnAddSetClicked" />
+                    <Button x:Name="AddExerciseBtn"
+                            Grid.Column="1"
+                            Style="{StaticResource RhythmBtnSecondary}"
+                            Text="+ exercice"
+                            FontSize="13"
+                            Padding="10,4"
+                            MinimumHeightRequest="36"
+                            CornerRadius="12"
+                            IsVisible="False"
+                            SemanticProperties.Hint="Ajouter un exercice à cette séance à la volée"
+                            Clicked="OnAddExerciseClicked" />
+                </Grid>
                 <Grid ColumnDefinitions="*,*"
-                      ColumnSpacing="12">
+                      ColumnSpacing="8">
                     <Button x:Name="PrevExerciseBtn"
                             Grid.Column="0"
                             Style="{StaticResource RhythmBtnSecondary}"
                             Text="← Précédent"
+                            FontSize="13"
+                            Padding="10,4"
+                            MinimumHeightRequest="36"
+                            CornerRadius="12"
                             Clicked="OnPrevExerciseClicked" />
                     <Button x:Name="NextExerciseBtn"
                             Grid.Column="1"
                             Text="Suivant →"
+                            FontSize="13"
+                            Padding="8,4"
+                            MinimumHeightRequest="36"
+                            CornerRadius="12"
                             Clicked="OnNextExerciseClicked" />
                 </Grid>
                 <Button x:Name="FinalizeBtn"
                         Style="{StaticResource RhythmBtnFinish}"
                         Text="✓ Terminer la séance"
+                        FontSize="14"
+                        Padding="12,6"
+                        MinimumHeightRequest="40"
+                        CornerRadius="14"
                         Clicked="OnFinalizeClicked" />
             </VerticalStackLayout>
         </Grid>
