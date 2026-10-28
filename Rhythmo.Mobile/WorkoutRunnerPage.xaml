@@ -28,28 +28,34 @@
                 <ProgressBar x:Name="ExerciseProgressBar"
                              HeightRequest="6"
                              Progress="0" />
-                <Image x:Name="ExerciseArtImage"
-                       HeightRequest="112"
-                       WidthRequest="112"
-                       Aspect="AspectFit"
-                       HorizontalOptions="Center"
-                       Source="illus_generic" />
-                <Label x:Name="ExerciseCounterLabel"
-                       Style="{StaticResource RhythmCaption}" />
-                <Label x:Name="ExerciseTitleLabel"
-                       Style="{StaticResource RhythmH2}"
-                       LineBreakMode="WordWrap" />
-                <HorizontalStackLayout Spacing="12">
-                    <Label x:Name="ExerciseCategoryLabel"
-                           Style="{StaticResource RhythmCaption}"
-                           VerticalOptions="Center" />
-                    <Label x:Name="ExercisePrMaxLabel"
-                           Style="{StaticResource RhythmCaption}"
-                           TextColor="{StaticResource RhythmGold}"
-                           FontFamily="OpenSansSemibold"
+                <Grid ColumnDefinitions="48,*" ColumnSpacing="12">
+                    <Image x:Name="ExerciseArtImage"
+                           Grid.Column="0"
+                           HeightRequest="48"
+                           WidthRequest="48"
+                           Aspect="AspectFit"
                            VerticalOptions="Center"
-                           IsVisible="False" />
-                </HorizontalStackLayout>
+                           HorizontalOptions="Center"
+                           Source="illus_generic" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label x:Name="ExerciseCounterLabel"
+                               Style="{StaticResource RhythmCaption}" />
+                        <Label x:Name="ExerciseTitleLabel"
+                               Style="{StaticResource RhythmH2}"
+                               LineBreakMode="WordWrap" />
+                        <HorizontalStackLayout Spacing="12">
+                            <Label x:Name="ExerciseCategoryLabel"
+                                   Style="{StaticResource RhythmCaption}"
+                                   VerticalOptions="Center" />
+                            <Label x:Name="ExercisePrMaxLabel"
+                                   Style="{StaticResource RhythmCaption}"
+                                   TextColor="{StaticResource RhythmGold}"
+                                   FontFamily="OpenSansSemibold"
+                                   VerticalOptions="Center"
+                                   IsVisible="False" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Grid>
             </VerticalStackLayout>
 
             <ScrollView Grid.Row="1">
