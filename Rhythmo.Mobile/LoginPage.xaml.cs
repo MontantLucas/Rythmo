@@ -10,13 +10,22 @@ public partial class LoginPage : ContentPage
 	private readonly SupabaseAuthService _auth = ServiceHelper.Services.GetRequiredService<SupabaseAuthService>();
 	private readonly SupabaseSettings _settings = ServiceHelper.Services.GetRequiredService<SupabaseSettings>();
 
-	public LoginPage() => InitializeComponent();
+	public LoginPage()
+	{
+		InitializeComponent();
+		UiGuard.Watch(this, InitializeLoginAsync);
+	}
 
 	internal void SetStatus(string message) => StatusLabel.Text = message;
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		_ = UiGuard.RunAsync(this, InitializeLoginAsync, nameof(LoginPage));
+	}
+
+	private async Task InitializeLoginAsync()
+	{
 		await _auth.InitializeAsync().ConfigureAwait(true);
 		if (!_settings.IsConfigured)
 			StatusLabel.Text = "Clé Supabase absente : rebuild avec Rhythmo/.env.";
@@ -117,10 +126,7 @@ public partial class LoginPage : ContentPage
 	async Task ShowErrorAsync(Exception ex)
 	{
 		CrashLogWriter.TryAppend("LoginPage", ex);
-		var msg = SupabaseAuthService.FormatAuthError(ex);
-		if (CrashLogWriter.LastResolvedPath is { } path)
-			msg += $"\n\nLog : {path}";
-		await ShowErrorMessageAsync(msg).ConfigureAwait(true);
+		await ShowErrorMessageAsync(SupabaseAuthService.FormatAuthError(ex)).ConfigureAwait(true);
 	}
 
 	async Task ShowErrorMessageAsync(string msg)

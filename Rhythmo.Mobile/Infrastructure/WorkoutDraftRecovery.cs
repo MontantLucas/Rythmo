@@ -44,7 +44,9 @@ public static class WorkoutDraftRecovery
 			if (choice == RecoveryChoice.Resume)
 			{
 				await UiShellNavigate
-					.GoAsync($"{nameof(WorkoutRunnerPage)}?SessionId={Uri.EscapeDataString(draft.SessionId.ToString())}")
+					.GoAsync(draft.IsAdHoc
+						? AdHocWorkout.RunnerRoute(draft.SessionId)
+						: $"{nameof(WorkoutRunnerPage)}?SessionId={Uri.EscapeDataString(draft.SessionId.ToString())}")
 					.ConfigureAwait(true);
 				return;
 			}
@@ -150,7 +152,7 @@ public static class WorkoutDraftRecovery
 
 		void Close(RecoveryChoice result)
 		{
-			DetachOverlay(page, overlay);
+			PageOverlay.Detach(page, overlay);
 			tcs.TrySetResult(result);
 		}
 
@@ -166,7 +168,7 @@ public static class WorkoutDraftRecovery
 		overlay.Children.Add(scrim);
 		overlay.Children.Add(card);
 
-		if (!AttachOverlay(page, overlay))
+		if (!PageOverlay.Attach(page, overlay))
 		{
 			tcs.TrySetResult(RecoveryChoice.None);
 			return await tcs.Task.ConfigureAwait(true);
@@ -202,32 +204,5 @@ public static class WorkoutDraftRecovery
 			return shellPage;
 
 		return Application.Current?.Windows.FirstOrDefault()?.Page;
-	}
-
-	static bool AttachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp)
-			return false;
-
-		if (cp.Content is Grid host)
-		{
-			host.Children.Add(overlay);
-			return true;
-		}
-
-		var wrapper = new Grid();
-		if (cp.Content is not null)
-			wrapper.Children.Add(cp.Content);
-		wrapper.Children.Add(overlay);
-		cp.Content = wrapper;
-		return true;
-	}
-
-	static void DetachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp || cp.Content is not Grid host)
-			return;
-
-		host.Children.Remove(overlay);
 	}
 }

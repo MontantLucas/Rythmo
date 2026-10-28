@@ -22,7 +22,6 @@ public partial class PrFeedPage : ContentPage
 
 	private readonly IRhythmoRepository _repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 	private readonly SocialHubService _hub = ServiceHelper.Services.GetRequiredService<SocialHubService>();
-	private readonly IDevErrorPresenter _dev = ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
 
 	private List<PrFeedItemVm> _allPrs = [];
 	private List<FilterOption> _userOptions = [];
@@ -34,56 +33,50 @@ public partial class PrFeedPage : ContentPage
 	public PrFeedPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, () => LoadCoreAsync(forceReload: true));
 		BackBtn.Clicked += (_, _) => _ = UiShellNavigate.GoAsync("..");
 		PrRefresh.Refreshing += async (_, _) =>
 		{
-			await LoadAsync(forceReload: true).ConfigureAwait(true);
+			await UiGuard.RunAsync(this, () => LoadCoreAsync(forceReload: true), "LoadAsync").ConfigureAwait(true);
 			PrRefresh.IsRefreshing = false;
 		};
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await LoadAsync(forceReload: !_loaded).ConfigureAwait(true);
+		_ = UiGuard.RunAsync(this, () => LoadCoreAsync(forceReload: !_loaded), "LoadAsync");
 	}
 
-	private async Task LoadAsync(bool forceReload)
+	private async Task LoadCoreAsync(bool forceReload)
 	{
-		try
+		if (forceReload)
 		{
-			if (forceReload)
-			{
-				var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-				var prTask = _hub.LoadAllPrFeedAsync(_repo, meId);
-				var usersTask = _repo.ListCommunityProfilesAsync();
-				var exercisesTask = _repo.ListExercisesAsync();
+			var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+			var prTask = _hub.LoadAllPrFeedAsync(_repo, meId);
+			var usersTask = _repo.ListCommunityProfilesAsync();
+			var exercisesTask = _repo.ListExercisesAsync();
 
-				await Task.WhenAll(prTask, usersTask, exercisesTask).ConfigureAwait(true);
+			await Task.WhenAll(prTask, usersTask, exercisesTask).ConfigureAwait(true);
 
-				_allPrs = prTask.Result
-					.OrderByDescending(p => p.CompletedUtc)
-					.ToList();
-				_userOptions = BuildUserOptions(usersTask.Result);
-				_exerciseOptions = BuildExerciseOptions(exercisesTask.Result);
+			_allPrs = prTask.Result
+				.OrderByDescending(p => p.CompletedUtc)
+				.ToList();
+			_userOptions = BuildUserOptions(usersTask.Result);
+			_exerciseOptions = BuildExerciseOptions(exercisesTask.Result);
 
-				UserFilterSelector.ItemsSource = _userOptions;
-				ExerciseFilterSelector.ItemsSource = _exerciseOptions;
-				if (UserFilterSelector.SelectedIndex < 0)
-					UserFilterSelector.SelectedIndex = 0;
-				if (ExerciseFilterSelector.SelectedIndex < 0)
-					ExerciseFilterSelector.SelectedIndex = 0;
+			UserFilterSelector.ItemsSource = _userOptions;
+			ExerciseFilterSelector.ItemsSource = _exerciseOptions;
+			if (UserFilterSelector.SelectedIndex < 0)
+				UserFilterSelector.SelectedIndex = 0;
+			if (ExerciseFilterSelector.SelectedIndex < 0)
+				ExerciseFilterSelector.SelectedIndex = 0;
 
-				_loaded = true;
-			}
-
-			RenderFilterChips();
-			RenderFeed();
+			_loaded = true;
 		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(LoadAsync)).ConfigureAwait(true);
-		}
+
+		RenderFilterChips();
+		RenderFeed();
 	}
 
 	private void RenderFilterChips()

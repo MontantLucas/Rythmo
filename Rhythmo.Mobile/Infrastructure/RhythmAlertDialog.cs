@@ -93,7 +93,7 @@ public static class RhythmAlertDialog
 
 		okBtn.Clicked += (_, _) =>
 		{
-			DetachOverlay(page, overlay);
+			PageOverlay.Detach(page, overlay);
 			tcs.TrySetResult();
 		};
 
@@ -106,39 +106,12 @@ public static class RhythmAlertDialog
 		overlay.Children.Add(scrim);
 		overlay.Children.Add(card);
 
-		if (!AttachOverlay(page, overlay))
+		if (!PageOverlay.Attach(page, overlay))
 		{
 			tcs.TrySetResult();
 			return tcs.Task;
 		}
 
 		return tcs.Task;
-	}
-
-	private static bool AttachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp)
-			return false;
-
-		if (cp.Content is Grid host)
-		{
-			host.Children.Add(overlay);
-			return true;
-		}
-
-		var wrapper = new Grid();
-		if (cp.Content is not null)
-			wrapper.Children.Add(cp.Content);
-		wrapper.Children.Add(overlay);
-		cp.Content = wrapper;
-		return true;
-	}
-
-	private static void DetachOverlay(Page page, Grid overlay)
-	{
-		if (page is not ContentPage cp || cp.Content is not Grid host)
-			return;
-
-		host.Children.Remove(overlay);
 	}
 }

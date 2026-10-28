@@ -8,7 +8,11 @@ public sealed record WorkoutDraftEnvelope(
 	DateTime StartedUtc,
 	DateTime UpdatedUtc,
 	int CurrentExerciseIndex,
-	IReadOnlyList<WorkoutDraftExerciseDto> Exercises);
+	IReadOnlyList<WorkoutDraftExerciseDto> Exercises)
+{
+	/// <summary>Séance libre, sans modèle enregistré dans « Tes séances ».</summary>
+	public bool IsAdHoc { get; init; }
+}
 
 public sealed record WorkoutDraftExerciseDto(
 	Guid ExerciseId,

@@ -58,7 +58,7 @@ public sealed class WeightProgressDrawable : IDrawable
 		const float padL = 50f;
 		const float padR = 14f;
 		const float padT = 40f;
-		const float padB = 54f;
+		const float padB = 36f;
 
 		var plot = new RectF(
 			dirtyRect.X + padL,
@@ -66,7 +66,7 @@ public sealed class WeightProgressDrawable : IDrawable
 			Math.Max(24f, dirtyRect.Width - padL - padR),
 			Math.Max(72f, dirtyRect.Height - padT - padB));
 
-		Stroke(canvas, muted, 1f);
+		Stroke(canvas, muted.WithAlpha(0.28f), 1f);
 		canvas.DrawLine(plot.Left - 8f, plot.Bottom, plot.Right + 8f, plot.Bottom);
 
 		const double minKg = 0;
@@ -83,16 +83,24 @@ public sealed class WeightProgressDrawable : IDrawable
 
 		canvas.FontSize = 11f;
 		canvas.FontColor = muted;
-		canvas.DrawString(
-			$"{maxKg:0.#}",
-			new RectF(plot.Left - 50f, plot.Top - 30f, 46f, 16f),
-			HorizontalAlignment.Right,
-			VerticalAlignment.Center);
-		canvas.DrawString(
-			"0",
-			new RectF(plot.Left - 50f, plot.Bottom + 4f, 46f, 16f),
-			HorizontalAlignment.Right,
-			VerticalAlignment.Center);
+		for (var tick = 0; tick <= 3; tick++)
+		{
+			var t = tick / 3f;
+			var kg = minKg + kgSpan * t;
+			var y = plot.Bottom - (float)(t * plot.Height);
+			if (tick > 0)
+			{
+				Stroke(canvas, muted.WithAlpha(0.16f), 1f);
+				canvas.DrawLine(plot.Left, y, plot.Right, y);
+			}
+
+			canvas.FontColor = muted;
+			canvas.DrawString(
+				$"{kg:0.#}",
+				new RectF(plot.Left - 50f, y - 8f, 46f, 16f),
+				HorizontalAlignment.Right,
+				VerticalAlignment.Center);
+		}
 
 		PointF at(int ix)
 		{
@@ -127,25 +135,44 @@ public sealed class WeightProgressDrawable : IDrawable
 
 		var la = FormatDay(day0);
 		var lb = FormatDay(day1);
-
 		canvas.FontSize = 11f;
 		canvas.FontColor = muted;
-
-		var ty = plot.Bottom + 42f;
+		var ty = plot.Bottom + 10f;
 		if (string.Equals(la, lb, StringComparison.Ordinal))
+		{
 			canvas.DrawString(
 				la,
-				new RectF(plot.Left - 24f, ty - 18f, plot.Width + 48f, 20f),
+				new RectF(plot.Left - 24f, ty, plot.Width + 48f, 20f),
 				HorizontalAlignment.Center,
 				VerticalAlignment.Top,
 				TextFlow.OverflowBounds);
+		}
 		else
+		{
 			canvas.DrawString(
-				$"{la}  →  {lb}",
-				new RectF(plot.Left - 22f, ty - 18f, plot.Width + 44f, 20f),
-				HorizontalAlignment.Center,
+				la,
+				new RectF(plot.Left - 8f, ty, 90f, 20f),
+				HorizontalAlignment.Left,
 				VerticalAlignment.Top,
 				TextFlow.OverflowBounds);
+			if (_series.Count >= 3)
+			{
+				var mid = _series[_series.Count / 2].Day;
+				canvas.DrawString(
+					FormatDay(mid),
+					new RectF(plot.Left + plot.Width / 2f - 45f, ty, 90f, 20f),
+					HorizontalAlignment.Center,
+					VerticalAlignment.Top,
+					TextFlow.OverflowBounds);
+			}
+
+			canvas.DrawString(
+				lb,
+				new RectF(plot.Right - 82f, ty, 90f, 20f),
+				HorizontalAlignment.Right,
+				VerticalAlignment.Top,
+				TextFlow.OverflowBounds);
+		}
 
 		string FormatDay(DateOnly d) =>
 			d.ToString("d MMM yyyy", CultureInfo.CurrentCulture);

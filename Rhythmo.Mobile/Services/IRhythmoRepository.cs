@@ -43,6 +43,8 @@ public interface IRhythmoRepository
 
 	Task<ExercisePersonalBestRow?> GetExercisePersonalBestAsync(
 		Guid profileId, Guid exerciseId, CancellationToken ct = default);
+	Task<IReadOnlyDictionary<Guid, double>> ListExerciseAllTimeMaxKgAsync(
+		Guid profileId, CancellationToken ct = default);
 	Task UpsertExercisePersonalBestAsync(ExercisePersonalBestRow row, CancellationToken ct = default);
 	Task InsertPrEventAsync(PrEventRow row, CancellationToken ct = default);
 	Task<IReadOnlyList<PrEventRow>> ListPrEventsAsync(CancellationToken ct = default);
@@ -55,6 +57,26 @@ public interface IRhythmoRepository
 
 	Task ImportSessionTemplateAsync(
 		Guid sourceSessionId, Guid targetOwnerId, CancellationToken ct = default);
+
+	Task<IReadOnlyList<ProfileExerciseRankRow>> ListProfileExerciseRanksAsync(
+		Guid profileId, CancellationToken ct = default);
+	Task UpsertProfileExerciseRankAsync(ProfileExerciseRankRow row, CancellationToken ct = default);
+
+	Task<IReadOnlyList<MuscleRankSnapshotRow>> ListMuscleRankSnapshotsAsync(
+		Guid profileId, string versionId, CancellationToken ct = default);
+	Task UpsertMuscleRankSnapshotAsync(MuscleRankSnapshotRow row, CancellationToken ct = default);
+
+	Task<IReadOnlyList<GroupRankSnapshotRow>> ListGroupRankSnapshotsAsync(
+		Guid profileId, string versionId, CancellationToken ct = default);
+	Task UpsertGroupRankSnapshotAsync(GroupRankSnapshotRow row, CancellationToken ct = default);
+
+	Task<IReadOnlyList<RankQuestAttemptRow>> ListQuestAttemptsAsync(
+		Guid profileId, CancellationToken ct = default);
+	Task<RankQuestAttemptRow?> GetInProgressQuestAsync(Guid profileId, CancellationToken ct = default);
+	Task InsertQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default);
+	Task UpdateQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default);
+	Task<bool> HasQuestAttemptOnLocalDateAsync(
+		Guid profileId, Guid exerciseId, DateOnly localDate, CancellationToken ct = default);
 }
 
 public sealed class ImportableUserRow

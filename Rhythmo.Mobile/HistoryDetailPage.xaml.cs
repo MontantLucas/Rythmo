@@ -13,9 +13,6 @@ namespace Rhythmo.Mobile;
 [QueryProperty(nameof(WorkoutIdEncoded), "WorkoutId")]
 public partial class HistoryDetailPage : ContentPage
 {
-	private readonly IDevErrorPresenter _dev =
-		ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
-
 	private Guid _workoutId;
 	private bool _reloadStarted;
 	private string? _pendingTitle;
@@ -27,6 +24,7 @@ public partial class HistoryDetailPage : ContentPage
 	public HistoryDetailPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, ReloadAsync);
 		Loaded += (_, _) => ApplyPendingDetailUi();
 		HandlerChanged += (_, _) => ApplyPendingDetailUi();
 	}
@@ -57,7 +55,7 @@ public partial class HistoryDetailPage : ContentPage
 
 		_reloadStarted = true;
 		if (IsLoaded)
-			_ = ReloadAsync();
+			_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 		else
 			Loaded += OnDeferredReload;
 	}
@@ -65,7 +63,7 @@ public partial class HistoryDetailPage : ContentPage
 	private void OnDeferredReload(object? sender, EventArgs e)
 	{
 		Loaded -= OnDeferredReload;
-		_ = ReloadAsync();
+		_ = UiGuard.RunAsync(this, ReloadAsync, nameof(ReloadAsync));
 	}
 
 	private async Task ShowMissingIdAndGoBackAsync()
@@ -240,9 +238,7 @@ public partial class HistoryDetailPage : ContentPage
 
 	private async Task ReloadAsync()
 	{
-		try
-		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
+		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 			var active = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
 
 			var row = await repo.GetCompletedWorkoutAsync(_workoutId, active).ConfigureAwait(false);
@@ -270,11 +266,6 @@ public partial class HistoryDetailPage : ContentPage
 			var notes = WorkoutHistoryFormatter.BuildListSubtitle(row);
 
 			await ApplyHistoryDetailUiAsync(title, notes, snap, namesById, categoriesById).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
 	}
 
 	private async void OnDeleteClicked(object? sender, EventArgs e)
@@ -305,7 +296,7 @@ public partial class HistoryDetailPage : ContentPage
 		}
 		catch (Exception ex)
 		{
-			await _dev.TryShowSafeAsync(ex, nameof(OnDeleteClicked)).ConfigureAwait(true);
+			await UiGuard.ReportAsync(this, ex, nameof(OnDeleteClicked)).ConfigureAwait(true);
 		}
 	}
 }

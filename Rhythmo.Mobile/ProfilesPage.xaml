@@ -1,86 +1,97 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Rhythmo.Mobile.Controls"
              x:Class="Rhythmo.Mobile.ProfilesPage"
              Title="Profil"
-             Shell.NavBarIsVisible="False">
+             Shell.NavBarIsVisible="True">
 
-    <ScrollView Padding="{OnIdiom Phone='20', Default='28'}">
-        <VerticalStackLayout Spacing="28">
+    <ScrollView Padding="{OnIdiom Phone='20,12', Default='28,18'}">
+        <VerticalStackLayout Spacing="22"
+                             MaximumWidthRequest="520">
 
-            <VerticalStackLayout Spacing="10">
-                <Label Style="{StaticResource RhythmH2}" Text="Profil et corps" />
-                <Label Style="{StaticResource RhythmCaption}"
-                       Text="Biométrie utilisée pour les estimations kcal. L’historique est dans l’onglet Stats." />
+            <VerticalStackLayout Spacing="6">
+                <Label x:Name="ProfileNameLabel"
+                       Style="{StaticResource RhythmH2}"
+                       LineBreakMode="TailTruncation" />
+                <Label x:Name="ProfileMetaLabel"
+                       Style="{StaticResource RhythmCaption}" />
             </VerticalStackLayout>
 
-            <Border Padding="22"
-                    StrokeThickness="0"
-                    BackgroundColor="{StaticResource RhythmSurface1}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="22" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="18">
-                    <Label Style="{StaticResource RhythmH3}" Text="Réglages" />
-                    <Label Style="{StaticResource RhythmCaption}"
-                           Text="Une seule fiche utilisateur pour toute l’application (séances, stats, charges)." />
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmCaption}" Text="Nom affiché" />
+                <Border Style="{StaticResource RhythmFieldBorder}"
+                        BackgroundColor="{StaticResource RhythmSurface2}">
+                    <Entry x:Name="DisplayNameEntry"
+                           BackgroundColor="Transparent"
+                           Placeholder="Ton prénom" />
+                </Border>
+            </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource RhythmCaption}" Text="Nom affiché" />
-                        <Entry x:Name="DisplayNameEntry" Placeholder="Ton prénom" />
-                    </VerticalStackLayout>
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmCaption}" Text="Biologie (estimation dépense)" />
+                <controls:RhythmOptionSelector x:Name="SexPicker"
+                                               Title="Biologie"
+                                               Placeholder="Homme ou femme"
+                                               SemanticProperties.Hint="Homme ou femme, pour l’estimation kcal" />
+            </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource RhythmCaption}" Text="Biologie (estimation dépense)" />
-                        <Picker x:Name="SexPicker" />
-                    </VerticalStackLayout>
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmCaption}" Text="Âge (optionnel)" />
+                <Border Style="{StaticResource RhythmFieldBorder}"
+                        BackgroundColor="{StaticResource RhythmSurface2}">
+                    <Entry x:Name="AgeEntry"
+                           BackgroundColor="Transparent"
+                           Keyboard="Numeric"
+                           Placeholder="30" />
+                </Border>
+            </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource RhythmCaption}" Text="Âge (optionnel)" />
-                        <Entry x:Name="AgeEntry"
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmCaption}" Text="Poids (balance)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Border Grid.Column="0"
+                            Style="{StaticResource RhythmFieldBorder}"
+                            BackgroundColor="{StaticResource RhythmSurface2}">
+                        <Entry x:Name="WeightEntry"
+                               BackgroundColor="Transparent"
                                Keyboard="Numeric"
-                               Placeholder="30" />
-                    </VerticalStackLayout>
+                               Placeholder="75" />
+                    </Border>
+                    <Label Grid.Column="1"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource RhythmTextSecondary}"
+                           Text="kg" />
+                </Grid>
+            </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource RhythmCaption}" Text="Poids (balance)" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <Entry x:Name="WeightEntry"
-                                   Grid.Column="0"
-                                   Keyboard="Numeric"
-                                   Placeholder="75" />
-                            <Label Grid.Column="1"
-                                   VerticalOptions="Center"
-                                   TextColor="{StaticResource RhythmTextSecondary}"
-                                   Text="kg" />
-                        </Grid>
-                    </VerticalStackLayout>
+            <VerticalStackLayout Spacing="8">
+                <Label Style="{StaticResource RhythmCaption}" Text="Taille (optionnel)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Border Grid.Column="0"
+                            Style="{StaticResource RhythmFieldBorder}"
+                            BackgroundColor="{StaticResource RhythmSurface2}">
+                        <Entry x:Name="HeightEntry"
+                               BackgroundColor="Transparent"
+                               Keyboard="Numeric"
+                               Placeholder="178" />
+                    </Border>
+                    <Label Grid.Column="1"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource RhythmTextSecondary}"
+                           Text="cm" />
+                </Grid>
+            </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource RhythmCaption}" Text="Taille (optionnel)" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <Entry x:Name="HeightEntry"
-                                   Grid.Column="0"
-                                   Keyboard="Numeric"
-                                   Placeholder="178" />
-                            <Label Grid.Column="1"
-                                   VerticalOptions="Center"
-                                   TextColor="{StaticResource RhythmTextSecondary}"
-                                   Text="cm" />
-                        </Grid>
-                    </VerticalStackLayout>
+            <Button x:Name="SaveProfileBtn"
+                    Style="{StaticResource RhythmBtnPrimary}"
+                    SemanticProperties.Hint="Enregistrer nom, sexe, poids, taille"
+                    Text="Enregistrer"
+                    Clicked="OnSaveProfileClicked" />
 
-                    <Button Margin="0,8,0,0"
-                            x:Name="SaveProfileBtn"
-                            SemanticProperties.Hint="Enregistrer nom, sexe, poids, taille"
-                            Text="Enregistrer"
-                            Clicked="OnSaveProfileClicked" />
-
-                    <Button Text="Se déconnecter"
-                            Style="{StaticResource RhythmBtnGhost}"
-                            Clicked="OnSignOutClicked" />
-                </VerticalStackLayout>
-            </Border>
+            <Button Text="Se déconnecter"
+                    Style="{StaticResource RhythmBtnGhost}"
+                    Clicked="OnSignOutClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

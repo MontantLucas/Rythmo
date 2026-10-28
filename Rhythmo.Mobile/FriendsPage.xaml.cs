@@ -10,7 +10,6 @@ public partial class FriendsPage : ContentPage
 	private readonly IRhythmoRepository _repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
 	private readonly SocialHubService _hub =
 		ServiceHelper.Services.GetRequiredService<SocialHubService>();
-	private readonly IDevErrorPresenter _dev = ServiceHelper.Services.GetRequiredService<IDevErrorPresenter>();
 
 	private LeaderboardPeriod _period = LeaderboardPeriod.Week;
 	private SocialHubSnapshot? _snapshot;
@@ -19,6 +18,10 @@ public partial class FriendsPage : ContentPage
 	public FriendsPage()
 	{
 		InitializeComponent();
+		UiGuard.Watch(this, ReloadCoreAsync);
+		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
+		HubTabs.SetItems(["Amis", "Classement"]);
+		HubTabs.SelectedIndexChanged += (_, idx) => ShowHub(idx);
 		FriendsRefresh.Refreshing += async (_, _) =>
 		{
 			_hub.InvalidateCache();
@@ -27,30 +30,24 @@ public partial class FriendsPage : ContentPage
 		};
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		await ReloadAsync().ConfigureAwait(true);
+		_ = ReloadAsync();
 	}
 
-	private async Task ReloadAsync()
+	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
+
+	private async Task ReloadCoreAsync()
 	{
 		var generation = Interlocked.Increment(ref _reloadGeneration);
-		try
-		{
-			var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-			var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(true);
-			if (generation != _reloadGeneration)
-				return;
+		var meId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+		var snapshot = await _hub.BuildAsync(_repo, meId, _period).ConfigureAwait(false);
+		if (generation != _reloadGeneration)
+			return;
 
-			_snapshot = snapshot;
-			await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			if (generation == _reloadGeneration)
-				await _dev.TryShowSafeAsync(ex, nameof(ReloadAsync)).ConfigureAwait(true);
-		}
+		_snapshot = snapshot;
+		await MainThread.InvokeOnMainThreadAsync(RenderAll).ConfigureAwait(false);
 	}
 
 	private void RenderAll()
@@ -62,7 +59,8 @@ public partial class FriendsPage : ContentPage
 			BuildPeriodTabs(),
 			_snapshot.SessionLeaderboard,
 			_snapshot.VolumeLeaderboard,
-			ShowProfileNameAsync);
+			ShowProfileNameAsync,
+			showHeading: false);
 
 		PrSectionHeaderHost.Content = FriendsHubUi.SectionHeader(
 			"Nouveaux PR",
@@ -89,6 +87,14 @@ public partial class FriendsPage : ContentPage
 		BadgesHost.Content = _snapshot.Badges.Count == 0
 			? FriendsHubUi.EmptyHint("Badges — continue à t'entraîner.")
 			: FriendsHubUi.BadgesCarousel(_snapshot.Badges);
+
+		ShowHub(HubTabs.SelectedIndex);
+	}
+
+	private void ShowHub(int index)
+	{
+		AmisScroll.IsVisible = index == 0;
+		RankScroll.IsVisible = index == 1;
 	}
 
 	private IReadOnlyList<View> BuildPeriodTabs() =>

@@ -6,29 +6,57 @@
              Title="Exercices"
              Shell.NavBarIsVisible="False">
     <Grid Padding="{OnIdiom Phone='20,16', Default='28,22'}"
-          RowDefinitions="Auto,Auto,*">
+          RowDefinitions="Auto,*">
 
-        <VerticalStackLayout Grid.Row="0" Spacing="16">
-            <Label Style="{StaticResource RhythmH2}" Text="Bibliothèque" />
-            <Label Style="{StaticResource RhythmCaption}"
-                   Text="Parcourez vite les mouvements par groupe musculaire." />
+        <VerticalStackLayout Grid.Row="0" Spacing="14">
+            <VerticalStackLayout x:Name="CatalogIntro" Spacing="10">
+                <Label Style="{StaticResource RhythmH2}" Text="Bibliothèque" />
+                <Label Style="{StaticResource RhythmCaption}"
+                       Text="Recherche, catégorie, puis muscles Primary et Secondary." />
+                <Button Style="{StaticResource RhythmBtnPrimary}"
+                        Text="Séance à la volée"
+                        SemanticProperties.Hint="Démarrer une séance libre en ajoutant les exercices au fur et à mesure"
+                        Clicked="OnStartAdHocClicked" />
+            </VerticalStackLayout>
             <controls:RhythmSearchField x:Name="ExerciseSearchBar"
                                         Placeholder="Rechercher un exercice…"
                                         TextChanged="OnSearchChanged" />
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="10"
+                  RowDefinitions="Auto,Auto"
+                  RowSpacing="6">
+                <Label Grid.Row="0"
+                       Grid.Column="0"
+                       Style="{StaticResource RhythmCaption}"
+                       Text="Catégorie" />
+                <Label Grid.Row="0"
+                       Grid.Column="1"
+                       Style="{StaticResource RhythmCaption}"
+                       Text="Sous-catégorie" />
+                <controls:RhythmOptionSelector Grid.Row="1"
+                                               Grid.Column="0"
+                                               x:Name="CatalogCategorySelector"
+                                               Title="Catégorie"
+                                               Placeholder="Toutes les catégories"
+                                               IsCompact="True"
+                                               SemanticProperties.Hint="Filtrer par catégorie"
+                                               SelectedIndexChanged="OnCatalogCategoryChanged" />
+                <controls:RhythmOptionSelector Grid.Row="1"
+                                               Grid.Column="1"
+                                               x:Name="CatalogSubcategorySelector"
+                                               Title="Sous-catégorie"
+                                               Placeholder="Toutes les sous-catégories"
+                                               IsCompact="True"
+                                               SemanticProperties.Hint="Filtrer par muscle"
+                                               SelectedIndexChanged="OnCatalogSubcategoryChanged" />
+            </Grid>
         </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="1"
-                             Margin="0,12,0,12"
-                             Spacing="6">
-            <Label Style="{StaticResource RhythmCaption}"
-                   Text="Catégorie" />
-            <controls:RhythmOptionSelector x:Name="CatalogCategorySelector"
-                                           SemanticProperties.Hint="Filtrer par groupe musculaire"
-                                           SelectedIndexChanged="OnCatalogCategoryChanged" />
-        </VerticalStackLayout>
-
-        <CollectionView Grid.Row="2"
+        <CollectionView Grid.Row="1"
                         x:Name="List"
+                        Margin="0,12,0,0"
+                        SelectionMode="None"
                         EmptyView="Aucun mouvement pour ce filtre.">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
@@ -39,37 +67,129 @@
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="20" />
                         </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnExerciseCardTapped" />
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Spacing="10">
-                            <Label FontFamily="OpenSansSemibold"
-                                   FontSize="14"
-                                   Text="{Binding Category}"
-                                   TextColor="{StaticResource RhythmAccent}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label FontFamily="OpenSansSemibold"
+                                       FontSize="13"
+                                       Text="{Binding Category}"
+                                       TextColor="{StaticResource RhythmAccent}"
+                                       LineBreakMode="TailTruncation"
+                                       VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       FontFamily="OpenSansSemibold"
+                                       FontSize="13"
+                                       Text="{Binding RankText}"
+                                       TextColor="{Binding RankColor}"
+                                       IsVisible="{Binding HasUserRank}"
+                                       VerticalOptions="Center" />
+                            </Grid>
                             <Label FontSize="17"
                                    LineBreakMode="WordWrap"
                                    Text="{Binding NameFr}"
                                    TextColor="{StaticResource RhythmTextPrimary}" />
-                            <HorizontalStackLayout Spacing="14">
-                                <Label FontSize="13"
-                                       Text="{Binding MetaLine}"
-                                       TextColor="{StaticResource RhythmTextSecondary}"
-                                       VerticalOptions="Center" />
-                                <Border Padding="10,4"
-                                        StrokeThickness="0"
-                                        BackgroundColor="{StaticResource RhythmSurface2}">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12" />
-                                    </Border.StrokeShape>
-                                    <Label FontSize="12"
-                                           Text="MET"
-                                           TextColor="{StaticResource RhythmTextSecondary}"
+
+                            <VerticalStackLayout IsVisible="{Binding HasPrimary}" Spacing="6">
+                                <Label FontSize="12"
+                                       FontFamily="OpenSansSemibold"
+                                       Text="Primary"
+                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                <FlexLayout Wrap="Wrap"
+                                            AlignItems="Start"
+                                            BindableLayout.ItemsSource="{Binding PrimaryMuscles}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="8,4"
+                                                    Margin="0,0,6,6"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="#2622D3C5">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <Label FontSize="12"
+                                                       FontFamily="OpenSansSemibold"
+                                                       Text="{Binding .}"
+                                                       TextColor="{StaticResource RhythmAccent}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout IsVisible="{Binding HasSecondary}" Spacing="6">
+                                <Label FontSize="12"
+                                       FontFamily="OpenSansSemibold"
+                                       Text="Secondary"
+                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                <FlexLayout Wrap="Wrap"
+                                            AlignItems="Start"
+                                            BindableLayout.ItemsSource="{Binding SecondaryMuscles}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="8,4"
+                                                    Margin="0,0,6,6"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{StaticResource RhythmSurface2}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <Label FontSize="12"
+                                                       FontFamily="OpenSansSemibold"
+                                                       Text="{Binding .}"
+                                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </VerticalStackLayout>
+
+                            <Border Padding="10,4"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{StaticResource RhythmSurface2}"
+                                    HorizontalOptions="Start"
+                                    IsVisible="{Binding ShowNonClassifying}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Label FontSize="12"
+                                       Text="Non classifiant"
+                                       TextColor="{StaticResource RhythmTextSecondary}" />
+                            </Border>
+
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="12">
+                                <HorizontalStackLayout Grid.Column="0"
+                                                       Spacing="10"
+                                                       VerticalOptions="Center">
+                                    <Border Padding="10,4"
+                                            StrokeThickness="0"
+                                            BackgroundColor="{StaticResource RhythmSurface2}">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Label FontSize="12"
+                                               Text="MET"
+                                               TextColor="{StaticResource RhythmTextSecondary}"
+                                               VerticalOptions="Center" />
+                                    </Border>
+                                    <Label FontSize="13"
+                                           FontAttributes="Bold"
+                                           Text="{Binding MetFormatted}"
+                                           TextColor="{StaticResource RhythmTextPrimary}"
                                            VerticalOptions="Center" />
-                                </Border>
-                                <Label FontSize="13"
-                                       FontAttributes="Bold"
-                                       Text="{Binding MetFormatted}"
-                                       TextColor="{StaticResource RhythmTextPrimary}"
-                                       VerticalOptions="Center" />
-                            </HorizontalStackLayout>
+                                </HorizontalStackLayout>
+                                <Button Grid.Column="1"
+                                        Padding="12,8"
+                                        CornerRadius="14"
+                                        FontSize="13"
+                                        FontFamily="OpenSansSemibold"
+                                        BackgroundColor="{StaticResource RhythmSurface2}"
+                                        TextColor="{StaticResource RhythmAccent}"
+                                        Text="À la volée"
+                                        Clicked="OnStartFromExerciseClicked" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
