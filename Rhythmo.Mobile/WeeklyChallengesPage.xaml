@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.WeeklyChallengesPage"
+             Title="Défis de la semaine"
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="{OnIdiom Phone='20,12,20,16', Default='28,18'}">
+        <RefreshView x:Name="Refresh">
+            <ScrollView>
+                <VerticalStackLayout Spacing="12" Padding="0,0,0,28">
+                    <Label x:Name="ScoreLabel" FontFamily="OpenSansSemibold" FontSize="28" TextColor="{StaticResource RhythmAccent}" />
+                    <Label Style="{StaticResource RhythmCaption}" Text="Lundi au dimanche. Une réussite ne se crédite qu’une fois." />
+                    <VerticalStackLayout x:Name="Host" Spacing="10" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

@@ -116,6 +116,9 @@ public partial class DashboardPage : ContentPage
 	private async void OnGoQuestsClicked(object? sender, EventArgs e) =>
 		await UiShellNavigate.GoAsync(nameof(RankQuestsPage)).ConfigureAwait(false);
 
+	private async void OnGoWeeklyClicked(object? sender, EventArgs e) =>
+		await UiShellNavigate.GoAsync(nameof(WeeklyChallengesPage)).ConfigureAwait(false);
+
 	private async void OnGroupOpened(object? sender, string groupId) =>
 		await RankUi.GoGroup(groupId).ConfigureAwait(false);
 }

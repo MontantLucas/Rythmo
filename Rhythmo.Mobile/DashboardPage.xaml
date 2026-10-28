@@ -13,35 +13,42 @@
                                  MaximumWidthRequest="840"
                                  HorizontalOptions="Center">
 
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Label Grid.Column="0"
-                           Style="{StaticResource RhythmH2}"
-                           Text="Muscles"
-                           VerticalOptions="Center"
-                           LineBreakMode="WordWrap" />
-                    <Grid Grid.Column="1" VerticalOptions="Center">
-                        <Button Style="{StaticResource RhythmBtnGhost}"
-                                Text="Défis →"
-                                Clicked="OnGoQuestsClicked" />
-                        <Border x:Name="QuestCountBadge"
-                                IsVisible="False"
-                                Padding="7,2"
-                                StrokeThickness="0"
-                                BackgroundColor="{StaticResource RhythmAccent}"
-                                HorizontalOptions="End"
-                                VerticalOptions="Start"
-                                TranslationX="8"
-                                TranslationY="-8">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="10" />
-                            </Border.StrokeShape>
-                            <Label x:Name="QuestCountLabel"
-                                   FontFamily="OpenSansSemibold"
-                                   FontSize="11"
-                                   TextColor="{StaticResource RhythmBg}" />
-                        </Border>
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource RhythmH2}"
+                           Text="Muscles" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Grid.Column="0"
+                                Style="{StaticResource RhythmBtnSecondary}"
+                                Text="Défis de la semaine"
+                                FontSize="13"
+                                Padding="8,10"
+                                Clicked="OnGoWeeklyClicked" />
+                        <Grid Grid.Column="1">
+                            <Button Style="{StaticResource RhythmBtnSecondary}"
+                                    Text="Quêtes de rang"
+                                    FontSize="13"
+                                    Padding="8,10"
+                                    Clicked="OnGoQuestsClicked" />
+                            <Border x:Name="QuestCountBadge"
+                                    IsVisible="False"
+                                    Padding="7,2"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{StaticResource RhythmAccent}"
+                                    HorizontalOptions="End"
+                                    VerticalOptions="Start"
+                                    TranslationX="6"
+                                    TranslationY="-6">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Label x:Name="QuestCountLabel"
+                                       FontFamily="OpenSansSemibold"
+                                       FontSize="11"
+                                       TextColor="{StaticResource RhythmBg}" />
+                            </Border>
+                        </Grid>
                     </Grid>
-                </Grid>
+                </VerticalStackLayout>
 
                 <controls:AnatomyBodyView x:Name="BodyMap"
                                           GroupOpened="OnGroupOpened" />

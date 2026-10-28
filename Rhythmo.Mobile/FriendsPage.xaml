@@ -9,7 +9,21 @@
     <Grid RowDefinitions="Auto,*"
           Padding="20,12,20,8">
         <VerticalStackLayout Spacing="10">
-            <Label Style="{StaticResource RhythmH2}" Text="Amis" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <Button BackgroundColor="{StaticResource RhythmSurface2}"
+                        BorderWidth="0"
+                        CornerRadius="14"
+                        FontSize="16"
+                        Padding="12,8"
+                        Text="←"
+                        TextColor="{StaticResource RhythmTextPrimary}"
+                        VerticalOptions="Center"
+                        Clicked="OnBackClicked" />
+                <Label Grid.Column="1"
+                       Style="{StaticResource RhythmH2}"
+                       Text="Amis"
+                       VerticalOptions="Center" />
+            </Grid>
             <controls:RhythmSectionTabs x:Name="HubTabs" />
         </VerticalStackLayout>
 

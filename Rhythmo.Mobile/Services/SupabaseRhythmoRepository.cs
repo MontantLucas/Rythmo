@@ -3,7 +3,7 @@ using SupabaseClient = Supabase.Client;
 
 namespace Rhythmo.Mobile.Services;
 
-public sealed class SupabaseRhythmoRepository(SupabaseClient client, RhythmoMemoryCache cache) : IRhythmoRepository
+public sealed partial class SupabaseRhythmoRepository(SupabaseClient client, RhythmoMemoryCache cache) : IRhythmoRepository
 {
 	private SupabaseClient Client => client;
 	private RhythmoMemoryCache Cache => cache;

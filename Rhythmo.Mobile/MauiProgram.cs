@@ -41,6 +41,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<PersonalRecordService>();
 		builder.Services.AddSingleton<MuscleRankingService>();
 		builder.Services.AddSingleton<RankQuestService>();
+		builder.Services.AddSingleton<WeeklyChallengeService>();
+		builder.Services.AddSingleton<TrainingPeriodStore>();
 		builder.Services.AddSingleton<WorkoutDraftStore>();
 		builder.Services.AddSingleton<WorkoutFinalizeService>();
 		builder.Services.AddSingleton<SessionRecovery>();

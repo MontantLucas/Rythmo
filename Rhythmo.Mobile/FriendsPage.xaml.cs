@@ -15,6 +15,9 @@ public partial class FriendsPage : ContentPage
 	private SocialHubSnapshot? _snapshot;
 	private int _reloadGeneration;
 
+	private async void OnBackClicked(object? sender, EventArgs e) =>
+		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
+
 	public FriendsPage()
 	{
 		InitializeComponent();

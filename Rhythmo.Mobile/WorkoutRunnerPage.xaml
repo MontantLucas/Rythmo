@@ -28,6 +28,12 @@
                 <ProgressBar x:Name="ExerciseProgressBar"
                              HeightRequest="6"
                              Progress="0" />
+                <Image x:Name="ExerciseArtImage"
+                       HeightRequest="112"
+                       WidthRequest="112"
+                       Aspect="AspectFit"
+                       HorizontalOptions="Center"
+                       Source="illus_generic" />
                 <Label x:Name="ExerciseCounterLabel"
                        Style="{StaticResource RhythmCaption}" />
                 <Label x:Name="ExerciseTitleLabel"

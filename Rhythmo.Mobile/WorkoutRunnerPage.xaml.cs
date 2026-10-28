@@ -345,6 +345,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		_currentExerciseIndex = index;
 
 		var blk = _blocks[index];
+		ExerciseArtImage.Source = ExerciseIllustration.SourceFor(blk.ExerciseId);
 		ExerciseTitleLabel.Text = blk.Title;
 		ExerciseCategoryLabel.Text = blk.Category.ToUpperInvariant();
 		if (blk.PrMaxKg > double.Epsilon)
@@ -375,6 +376,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 	private void ShowEmptyAdHocState()
 	{
 		ExerciseTitleLabel.Text = "Ajoute un exercice";
+		ExerciseArtImage.Source = ExerciseIllustration.SourceFor(Guid.Empty);
 		ExerciseCategoryLabel.Text = _isAdHoc ? "SÉANCE À LA VOLÉE" : "";
 		ExercisePrMaxLabel.IsVisible = false;
 		ExercisePrMaxLabel.Text = "";
@@ -1087,13 +1089,22 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			{
 				ColumnDefinitions =
 				[
+					new ColumnDefinition(new GridLength(40)),
 					new ColumnDefinition(GridLength.Star),
 					new ColumnDefinition(GridLength.Auto)
 				],
 				ColumnSpacing = 12
 			};
-			row.Add(textCol, 0);
-			row.Add(addBtn, 1);
+			row.Add(new Image
+			{
+				Source = ExerciseIllustration.SourceFor(ex.Id),
+				WidthRequest = 40,
+				HeightRequest = 40,
+				Aspect = Aspect.AspectFit,
+				VerticalOptions = LayoutOptions.Center
+			}, 0);
+			row.Add(textCol, 1);
+			row.Add(addBtn, 2);
 
 			var wrap = new Border
 			{

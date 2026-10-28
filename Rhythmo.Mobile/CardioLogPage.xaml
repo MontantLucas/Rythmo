@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.CardioLogPage"
+             Title="Course"
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="20" RowDefinitions="Auto,*">
+        <VerticalStackLayout Spacing="10">
+            <Label Style="{StaticResource RhythmCaption}" Text="Distance (km) et durée (min). L’allure est calculée." />
+            <Entry x:Name="DistanceEntry" Placeholder="Distance en km" Keyboard="Numeric" />
+            <Entry x:Name="DurationEntry" Placeholder="Durée en minutes" Keyboard="Numeric" />
+            <Button Text="Enregistrer" Clicked="OnSaveClicked" />
+            <Label x:Name="ErrorLabel" TextColor="{StaticResource RhythmError}" IsVisible="False" />
+        </VerticalStackLayout>
+        <ScrollView Grid.Row="1" Margin="0,16,0,0">
+            <VerticalStackLayout x:Name="Host" Spacing="8" />
+        </ScrollView>
+    </Grid>
+</ContentPage>

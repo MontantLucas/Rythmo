@@ -7,6 +7,7 @@ using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Services;
 using Rhythmo.Mobile.Theme;
 using Rhythmo.Shared.Contracts;
+using Rhythmo.Shared.History;
 
 namespace Rhythmo.Mobile;
 
@@ -20,6 +21,7 @@ public partial class HistoryDetailPage : ContentPage
 	private WorkoutCompletedRequest? _pendingSnap;
 	private Dictionary<Guid, string>? _pendingNames;
 	private Dictionary<Guid, string?>? _pendingCategories;
+	private readonly Dictionary<Guid, List<string>> _prByExercise = [];
 
 	public HistoryDetailPage()
 	{
@@ -122,7 +124,7 @@ public partial class HistoryDetailPage : ContentPage
 		}
 	}
 
-	private static void RenderExerciseDetails(
+	private void RenderExerciseDetails(
 		VerticalStackLayout host,
 		WorkoutCompletedRequest? snap,
 		IReadOnlyDictionary<Guid, string>? names,
@@ -134,7 +136,7 @@ public partial class HistoryDetailPage : ContentPage
 		{
 			host.Children.Add(new Label
 			{
-				Text = "Aucun détail de séries enregistré pour cette entrée.",
+				Text = "Aucune série enregistrée",
 				FontSize = 14,
 				TextColor = RhythmColors.TextSecondary
 			});
@@ -146,9 +148,9 @@ public partial class HistoryDetailPage : ContentPage
 			string? name = null;
 			if (names is not null)
 				names.TryGetValue(ex.ExerciseId, out name);
-			var title = string.IsNullOrWhiteSpace(name)
-				? $"Exercice {ex.ExerciseId.ToString()[..8]}"
-				: name!;
+			var known = !string.IsNullOrWhiteSpace(name);
+			var title = known ? name! : "Exercice inconnu";
+			_prByExercise.TryGetValue(ex.ExerciseId, out var kinds);
 
 			var card = new Border
 			{
@@ -159,7 +161,24 @@ public partial class HistoryDetailPage : ContentPage
 			card.StrokeShape = new RoundRectangle { CornerRadius = 16 };
 
 			var stack = new VerticalStackLayout { Spacing = 10 };
-			stack.Children.Add(new Label
+			var header = new Grid
+			{
+				ColumnDefinitions =
+				{
+					new ColumnDefinition(new GridLength(48)),
+					new ColumnDefinition(GridLength.Star)
+				},
+				ColumnSpacing = 12
+			};
+			header.Add(new Image
+			{
+				Source = known ? ExerciseIllustration.SourceFor(ex.ExerciseId) : ExerciseIllustration.Load(ExerciseArt.Generic),
+				WidthRequest = 48,
+				HeightRequest = 48,
+				Aspect = Aspect.AspectFit
+			}, 0);
+			var titles = new VerticalStackLayout { Spacing = 2 };
+			titles.Add(new Label
 			{
 				Text = title,
 				FontFamily = "OpenSansSemibold",
@@ -167,6 +186,18 @@ public partial class HistoryDetailPage : ContentPage
 				TextColor = RhythmColors.TextPrimary,
 				LineBreakMode = LineBreakMode.WordWrap
 			});
+			if (kinds is { Count: > 0 })
+			{
+				titles.Add(new Label
+				{
+					Text = "PR " + string.Join(" · ", kinds),
+					FontFamily = "OpenSansSemibold",
+					FontSize = 12,
+					TextColor = RhythmColors.Accent
+				});
+			}
+			header.Add(titles, 1);
+			stack.Children.Add(header);
 
 			if (categories is not null &&
 			    categories.TryGetValue(ex.ExerciseId, out var cat) &&
@@ -260,6 +291,18 @@ public partial class HistoryDetailPage : ContentPage
 			var catalog = await repo.ListExercisesAsync().ConfigureAwait(false);
 			var namesById = catalog.ToDictionary(static e => e.Id, static e => e.NameFr ?? "");
 			var categoriesById = catalog.ToDictionary(static e => e.Id, static e => e.Category);
+			var prs = await repo.ListPrEventsForProfileAsync(active).ConfigureAwait(false);
+			_prByExercise.Clear();
+			foreach (var pr in prs.Where(p => p.CompletedWorkoutId == _workoutId))
+			{
+				if (!_prByExercise.TryGetValue(pr.ExerciseId, out var list))
+				{
+					list = [];
+					_prByExercise[pr.ExerciseId] = list;
+				}
+				if (!list.Contains(pr.Kind))
+					list.Add(pr.Kind);
+			}
 
 			var title = row.SessionTitle ?? "";
 			var snap = CompletedWorkoutSnapshot.DeserializeRequestSnapshot(row.PayloadJson);

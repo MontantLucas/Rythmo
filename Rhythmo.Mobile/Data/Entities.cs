@@ -105,6 +105,37 @@ public sealed class PrEventRow
 	public DateTime AchievedUtc { get; set; }
 }
 
+public sealed class CardioActivityRow
+{
+	public Guid Id { get; set; }
+	public Guid ProfileId { get; set; }
+	public DateTime PerformedUtc { get; set; }
+	public double DistanceM { get; set; }
+	public int DurationS { get; set; }
+}
+
+public sealed class WeeklyChallengeAssignmentRow
+{
+	public Guid Id { get; set; }
+	public Guid ProfileId { get; set; }
+	public int IsoYear { get; set; }
+	public int IsoWeek { get; set; }
+	public int Slot { get; set; }
+	public string TemplateId { get; set; } = "";
+	public string? TargetJson { get; set; }
+	public string Status { get; set; } = "offered";
+	public DateTime? StartedUtc { get; set; }
+	public DateTime ExpiresUtc { get; set; }
+}
+
+public sealed class ChallengePointAwardRow
+{
+	public Guid AssignmentId { get; set; }
+	public Guid ProfileId { get; set; }
+	public int Points { get; set; }
+	public DateTime AwardedUtc { get; set; }
+}
+
 public sealed class ProfileExerciseRankRow
 {
 	public Guid ProfileId { get; set; }

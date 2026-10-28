@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.MuscleComparePage"
+             Title="Profil musculaire"
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="{OnIdiom Phone='20,12,20,16', Default='28,18'}" RowDefinitions="Auto,*">
+        <VerticalStackLayout Spacing="8">
+            <Label Style="{StaticResource RhythmCaption}" Text="Comparer avec" />
+            <Picker x:Name="OtherPicker" Title="Choisir un profil" SelectedIndexChanged="OnOtherChanged" />
+        </VerticalStackLayout>
+        <ScrollView Grid.Row="1" Margin="0,12,0,0">
+            <VerticalStackLayout x:Name="Host" Spacing="12" Padding="0,0,0,28" />
+        </ScrollView>
+    </Grid>
+</ContentPage>

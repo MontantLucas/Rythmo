@@ -19,12 +19,7 @@
             Icon="tab_sessions.svg"
             Route="SessionsPage" />
         <ShellContent
-            Title="Amis"
-            ContentTemplate="{DataTemplate pages:FriendsPage}"
-            Icon="tab_friends.svg"
-            Route="FriendsPage" />
-        <ShellContent
-            Title="⋯"
+            Title="Profil"
             ContentTemplate="{DataTemplate pages:MorePage}"
             Icon="tab_more.svg"
             Route="MorePage" />

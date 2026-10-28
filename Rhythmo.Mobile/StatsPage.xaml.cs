@@ -1,321 +1,142 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.Controls;
 using Rhythmo.Mobile.Charting;
-using Rhythmo.Mobile.Data;
 using Rhythmo.Mobile.Infrastructure;
 using Rhythmo.Mobile.Services;
+using Rhythmo.Mobile.Theme;
+using Rhythmo.Shared.History;
+using Rhythmo.Shared.Ranking;
 
 namespace Rhythmo.Mobile;
 
 public partial class StatsPage : ContentPage
 {
-	private sealed record HistRow(Guid Id, string SessionTitle, string SubLine);
-
-	private const string CleanPickAll = "Tout vider";
-	private const string CleanPickOrphans = "Vider uniquement les séances qui n’existent plus";
-
-	private readonly WeightProgressDrawable _progressDrawable = new();
-
-	private int _tabIndex;
-	private bool _suppressProgressExerciseSelector;
-	private Guid? _stickyProgressExerciseId;
-	private List<(Guid Id, string Name)> _progressExercises = [];
-	private string _progressExerciseSearch = "";
+	private readonly TrainingPeriodStore _periods = ServiceHelper.Services.GetRequiredService<TrainingPeriodStore>();
+	private readonly MuscleRadarDrawable _radar = new();
+	private bool _loading;
 
 	public StatsPage()
 	{
 		InitializeComponent();
-		UiGuard.Watch(this, ReloadCoreAsync);
-		WorkoutFinalizeRefresh.Bind(this, () => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync)));
-		HistoryList.SelectionChanged += HistoryListOnSelectionChanged;
-		ProgressChart.Drawable = _progressDrawable;
-		StatsTabs.SetItems(["Aperçu", "Séances", "Progression"]);
-		StatsTabs.SelectedIndexChanged += (_, idx) => ShowTab(idx);
-
-		StatsRefresh.Refreshing += async (_, _) =>
-		{
-			await ReloadAsync().ConfigureAwait(true);
-			StatsRefresh.IsRefreshing = false;
-		};
-		ShowTab(0);
+		SelfRadar.Drawable = _radar;
+		StatsRefresh.Command = new Command(() => _ = ReloadAsync());
+		_periods.Changed += (_, _) => _ = ReloadAsync();
 	}
 
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		ShowTab(_tabIndex);
-		await ReloadAsync().ConfigureAwait(true);
+		_ = ReloadAsync();
 	}
 
-	private Task ReloadAsync() => UiGuard.RunAsync(this, ReloadCoreAsync, nameof(ReloadAsync));
+	private async void OnCompareTapped(object? sender, TappedEventArgs e) =>
+		await UiShellNavigate.GoAsync(nameof(MuscleComparePage)).ConfigureAwait(true);
 
-	private async Task ReloadCoreAsync()
+	private async void OnHistoryTapped(object? sender, TappedEventArgs e) =>
+		await UiShellNavigate.GoAsync(nameof(HistoryPage)).ConfigureAwait(true);
+
+	private async Task ReloadAsync()
 	{
-		var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-		var profileId =
-			ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-		var hist = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(false);
-
-		var overview = await Task.Run(() =>
-		{
-			double volTotal = hist.Sum(w => WorkoutAnalytics.ComputeVolumeKgFromPayload(w.PayloadJson));
-			var volText = volTotal >= 1000 ? $"{volTotal / 1000d:0.#} t" : $"{volTotal:0} kg";
-			var kcal = $"{Math.Round(hist.Sum(w => w.CaloriesRounded))} kcal · cloud";
-			var ui = hist.Select(c =>
-				new HistRow(c.Id, c.SessionTitle, WorkoutHistoryFormatter.BuildListSubtitle(c))).ToList();
-			return (
-				VolText: volText,
-				CountText: hist.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-				KcalText: kcal,
-				Rows: ui);
-		}).ConfigureAwait(false);
-
-		await MainThread.InvokeOnMainThreadAsync(async () =>
-		{
-			OverviewVolumeLabel.Text = overview.VolText;
-			OverviewCountLabel.Text = overview.CountText;
-			OverviewKcalLabel.Text = overview.KcalText;
-			HistoryList.ItemsSource = overview.Rows;
-			HistoryList.SelectedItem = null;
-
-			await LoadProgressPickerAsync(repo, profileId).ConfigureAwait(true);
-		}).ConfigureAwait(false);
-	}
-
-	private async void HistoryListOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-	{
-		if (e.CurrentSelection.FirstOrDefault() is not HistRow row)
+		if (_loading)
 			return;
-
+		_loading = true;
 		try
 		{
-			await MainThread.InvokeOnMainThreadAsync(async () =>
-			{
-				if (sender is CollectionView cv)
-					cv.SelectedItem = null;
+			var today = DateOnly.FromDateTime(DateTime.Now);
+			var window = _periods.Window(today);
+			BuildPeriod(today, window);
+			RangeLabel.Text = window.RangeLabel;
 
-				await UiShellNavigate.GoAsync(
-						$"{nameof(HistoryDetailPage)}?WorkoutId={Uri.EscapeDataString(row.Id.ToString())}")
-					.ConfigureAwait(true);
-			}).ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await UiGuard.ReportAsync(this, ex, nameof(HistoryListOnSelectionChanged)).ConfigureAwait(true);
-		}
-	}
-
-	private void ShowTab(int idx)
-	{
-		_tabIndex = idx;
-		if (StatsTabs.SelectedIndex != idx)
-			StatsTabs.SelectedIndex = idx;
-		OverviewPanel.IsVisible = idx == 0;
-		SessionsPanel.IsVisible = idx == 1;
-		ProgressPanel.IsVisible = idx == 2;
-
-		if (idx == 2)
-			InvalidateProgressChart();
-	}
-
-	/// <summary>
-	/// Le GraphicsView du graphique ne doit pas être invalidé tant que l’onglet Progression n’est pas visible :
-	/// sur WinUI le layout peut être 0×0 et le rendu plante.
-	/// </summary>
-	private void InvalidateProgressChart()
-	{
-		if (_tabIndex == 2 && ProgressPanel.IsVisible)
-			ProgressChart.Invalidate();
-	}
-
-	private async void OnCleanHistoryClicked(object? sender, EventArgs e)
-	{
-		var pick = await DisplayActionSheetAsync(
-			"Choisir un mode de nettoyage (historique local de ce profil).",
-			"Annuler",
-			null,
-			CleanPickAll,
-			CleanPickOrphans).ConfigureAwait(true);
-
-		if (pick is null || pick == "Annuler")
-			return;
-
-		try
-		{
 			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			var profileId =
-				ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-
-			if (pick == CleanPickAll)
-			{
-				var confirm = await DisplayAlertAsync(
-					"Tout supprimer ?",
-					"Tous les résumés terminés et la courbe progression (points par jour) pour ce profil seront effacés. Irréversible.",
-					"Supprimer tout",
-					"Annuler").ConfigureAwait(true);
-				if (!confirm)
-					return;
-
-				var rows = await repo.ListCompletedWorkoutsAsync(profileId).ConfigureAwait(true);
-				await repo.DeleteAllPerformanceDailyAsync(profileId).ConfigureAwait(true);
-				await repo.DeleteCompletedWorkoutsAsync(rows.Select(r => r.Id)).ConfigureAwait(true);
-
-				await DisplayAlertAsync("Historique", $"{rows.Count} entrée(s) supprimée(s).", "OK")
-					.ConfigureAwait(true);
-			}
-			else if (pick == CleanPickOrphans)
-			{
-				var confirm = await DisplayAlertAsync(
-					"Nettoyer les entrées sans séance ?",
-					"Seront retirées : les lignes faites après une séance supprimée, et les anciennes lignes sans séance reliée dont le titre ne correspond plus à aucune de tes séances.",
-					"Supprimer ces lignes",
-					"Annuler").ConfigureAwait(true);
-				if (!confirm)
-					return;
-
-				var orphaned = await repo.GetOrphanedCompletedWorkoutsAsync(profileId).ConfigureAwait(true);
-				if (orphaned.Count == 0)
+			var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
+			var since = window.Start.ToDateTime(TimeOnly.MinValue).ToUniversalTime().AddDays(-1);
+			var rows = await repo.ListCompletedWorkoutsSinceAsync(profileId, since).ConfigureAwait(true);
+			var catalog = await repo.ListExercisesAsync().ConfigureAwait(true);
+			var byId = catalog.ToDictionary(e => e.Id);
+			var agg = TrainingHistory.Build(
+				rows.Select(HistoryMapping.ToHistory).ToList(),
+				window,
+				TimeZoneInfo.Local,
+				id =>
 				{
-					await DisplayAlertAsync("Historique", "Aucune entrée à supprimer.", "OK")
-						.ConfigureAwait(true);
-					return;
-				}
+					if (!byId.TryGetValue(id, out var row))
+						return null;
+					var def = MuscleRankingCatalog.Find(row.Category ?? "", row.NameFr);
+					var muscle = def?.PrimaryMuscles.FirstOrDefault() ?? def?.SecondaryMuscles.FirstOrDefault();
+					string? group = null;
+					if (muscle is not null)
+					{
+						foreach (var item in MuscleIds.Muscles)
+						{
+							if (item.Id == muscle)
+								group = item.GroupId;
+						}
+					}
+					return new HistoryExerciseInfo(row.NameFr, group);
+				},
+				[]);
+			SessionsLabel.Text = agg.SessionCount.ToString();
+			ExercisesLabel.Text = agg.DistinctExerciseCount.ToString();
+			VolumeLabel.Text = agg.VolumeKg >= 1000 ? $"{agg.VolumeKg / 1000d:0.#} t" : $"{agg.VolumeKg:0} kg";
 
-				await repo.DeleteCompletedWorkoutsAsync(orphaned.Select(o => o.Id)).ConfigureAwait(true);
-
-				await DisplayAlertAsync("Historique", $"{orphaned.Count} entrée(s) supprimée(s).", "OK")
-					.ConfigureAwait(true);
-			}
+			var snaps = await repo.ListGroupRankSnapshotsAsync(profileId, MuscleIds.StandardVersionId).ConfigureAwait(true);
+			var side = MuscleCompareModel.Build(
+				snaps.Select(s => new CompareSnapshot(s.GroupId, s.ValidatedRank)),
+				[]);
+			_radar.Self = MuscleIds.Groups.Select(g => side.GroupRanks[g.Id]).ToList();
+			_radar.Other = new int?[6];
+			SelfRadar.Invalidate();
 		}
 		catch (Exception ex)
 		{
-			await UiGuard.ReportAsync(this, ex, nameof(OnCleanHistoryClicked)).ConfigureAwait(false);
-		}
-
-		await ReloadAsync().ConfigureAwait(false);
-	}
-
-	private async void OnProgressExerciseSelected(object? sender, EventArgs e)
-	{
-		if (_suppressProgressExerciseSelector)
-			return;
-
-		var visible = GetVisibleProgressExercises();
-		var ix = ProgressExerciseSelector.SelectedIndex;
-		_stickyProgressExerciseId = ix >= 0 && ix < visible.Count
-			? visible[ix].Id
-			: null;
-
-		try
-		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			await RefreshProgressChartAsync(
-					repo,
-					ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get())
-				.ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSelected)).ConfigureAwait(true);
-		}
-	}
-
-	private async void OnProgressExerciseSearchChanged(object? sender, TextChangedEventArgs e)
-	{
-		_progressExerciseSearch = e.NewTextValue ?? "";
-		ApplyProgressExerciseFilter(preserveSelection: true);
-
-		if (_tabIndex != 2)
-			return;
-
-		try
-		{
-			var repo = ServiceHelper.Services.GetRequiredService<IRhythmoRepository>();
-			await RefreshProgressChartAsync(
-					repo,
-					ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get())
-				.ConfigureAwait(true);
-		}
-		catch (Exception ex)
-		{
-			await UiGuard.ReportAsync(this, ex, nameof(OnProgressExerciseSearchChanged)).ConfigureAwait(true);
-		}
-	}
-
-	private async Task LoadProgressPickerAsync(IRhythmoRepository repo, Guid profileId)
-	{
-		var exercisedIds = await repo.ListExercisesWithPerformanceAsync(profileId).ConfigureAwait(true);
-		var all = await repo.ListExercisesAsync().ConfigureAwait(true);
-		_progressExercises = all
-			.Where(c => exercisedIds.Contains(c.Id))
-			.OrderBy(c => c.NameFr)
-			.Select(c => (c.Id, Name: string.IsNullOrWhiteSpace(c.NameFr) ? "—" : c.NameFr))
-			.ToList();
-
-		ApplyProgressExerciseFilter(preserveSelection: true);
-		await RefreshProgressChartAsync(repo, profileId).ConfigureAwait(true);
-	}
-
-	private void ApplyProgressExerciseFilter(bool preserveSelection)
-	{
-		var visible = GetVisibleProgressExercises();
-		var names = visible.Select(p => p.Name).ToList();
-
-		Guid? want = preserveSelection ? _stickyProgressExerciseId : null;
-		if (want is null && visible.Count > 0)
-			want = visible[0].Id;
-
-		_suppressProgressExerciseSelector = true;
-		try
-		{
-			ProgressExerciseSelector.ItemsSource = names;
-
-			if (want is { } id)
-			{
-				var ix = visible.FindIndex(p => p.Id == id);
-				ProgressExerciseSelector.SelectedIndex = ix >= 0 ? ix : names.Count > 0 ? 0 : -1;
-			}
-			else
-				ProgressExerciseSelector.SelectedIndex = names.Count > 0 ? 0 : -1;
-
-			var selIx = ProgressExerciseSelector.SelectedIndex;
-			_stickyProgressExerciseId = selIx >= 0 && selIx < visible.Count
-				? visible[selIx].Id
-				: null;
+			await UiGuard.ReportAsync(this, ex, nameof(ReloadAsync)).ConfigureAwait(true);
 		}
 		finally
 		{
-			_suppressProgressExerciseSelector = false;
+			_loading = false;
 		}
 	}
 
-	private List<(Guid Id, string Name)> GetVisibleProgressExercises()
+	private void BuildPeriod(DateOnly today, TrainingPeriodWindow window)
 	{
-		if (string.IsNullOrWhiteSpace(_progressExerciseSearch))
-			return _progressExercises;
-
-		var q = _progressExerciseSearch.Trim();
-		return _progressExercises
-			.Where(p => p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
-			.ToList();
-	}
-
-	private async Task RefreshProgressChartAsync(IRhythmoRepository repo, Guid profileId)
-	{
-		var visible = GetVisibleProgressExercises();
-		var ix = ProgressExerciseSelector.SelectedIndex;
-		if (ix < 0 || ix >= visible.Count)
+		PeriodHost.Children.Clear();
+		PeriodHost.Add(Arrow("‹", true, () => _periods.Previous(today)), 0);
+		var chips = new HorizontalStackLayout { Spacing = 6, HorizontalOptions = LayoutOptions.Center };
+		foreach (var kind in TrainingPeriodStore.Offered)
 		{
-			_progressDrawable.SetSeries([]);
-			InvalidateProgressChart();
-			return;
+			var selected = kind == _periods.Kind;
+			var btn = new Button
+			{
+				Text = _periods.Chip(kind, today),
+				FontSize = 13,
+				Padding = new Thickness(10, 6),
+				CornerRadius = 14,
+				BackgroundColor = selected ? RhythmColors.Accent : RhythmColors.Surface2,
+				TextColor = selected ? RhythmColors.Bg : RhythmColors.TextPrimary
+			};
+			var captured = kind;
+			btn.Clicked += (_, _) => _periods.Select(captured);
+			chips.Add(btn);
 		}
+		PeriodHost.Add(chips, 1);
+		var next = Arrow("›", window.CanGoNext, () => _periods.Next(today));
+		next.IsEnabled = window.CanGoNext;
+		PeriodHost.Add(next, 2);
+	}
 
-		var pts = await repo.ListPerformanceDailyAsync(profileId, visible[ix].Id).ConfigureAwait(true);
-		var list = pts.Select(static x => (x.PerformanceDate, x.MaxWeightKg)).ToList();
-		_progressDrawable.SetSeries(list);
-		InvalidateProgressChart();
+	private static Button Arrow(string text, bool enabled, Action action)
+	{
+		var btn = new Button
+		{
+			Text = text,
+			WidthRequest = 44,
+			HeightRequest = 44,
+			FontSize = 18,
+			Padding = 0,
+			BackgroundColor = RhythmColors.Surface2,
+			TextColor = RhythmColors.TextPrimary,
+			IsEnabled = enabled
+		};
+		btn.Clicked += (_, _) => action();
+		return btn;
 	}
 }
