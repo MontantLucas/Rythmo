@@ -6,6 +6,7 @@ namespace Rhythmo.Mobile.Data;
 [Table("cardio_activities")]
 public sealed class CardioActivityRecord : BaseModel
 {
+	/// <summary>Postgres génère l’id. Ne pas l’envoyer.</summary>
 	[PrimaryKey("id", false)]
 	public Guid Id { get; set; }
 
@@ -25,6 +26,7 @@ public sealed class CardioActivityRecord : BaseModel
 [Table("weekly_challenge_assignments")]
 public sealed class WeeklyChallengeAssignmentRecord : BaseModel
 {
+	/// <summary>Postgres génère l’id. Ne pas l’envoyer.</summary>
 	[PrimaryKey("id", false)]
 	public Guid Id { get; set; }
 
@@ -59,7 +61,8 @@ public sealed class WeeklyChallengeAssignmentRecord : BaseModel
 [Table("challenge_point_awards")]
 public sealed class ChallengePointAwardRecord : BaseModel
 {
-	[PrimaryKey("assignment_id", false)]
+	/// <summary>C’est l’id du défi, pas un identifiant aléatoire. Il faut l’envoyer.</summary>
+	[PrimaryKey("assignment_id", true)]
 	public Guid AssignmentId { get; set; }
 
 	[Column("profile_id")]

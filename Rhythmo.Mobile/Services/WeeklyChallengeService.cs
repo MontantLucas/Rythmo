@@ -33,7 +33,6 @@ public sealed class WeeklyChallengeService
 				continue;
 			await repo.InsertChallengeAssignmentAsync(new WeeklyChallengeAssignmentRow
 			{
-				Id = Guid.NewGuid(),
 				ProfileId = profileId,
 				IsoYear = week.Year,
 				IsoWeek = week.Week,

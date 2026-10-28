@@ -40,7 +40,6 @@ public partial class CardioLogPage : ContentPage
 			var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
 			await repo.AddCardioActivityAsync(new CardioActivityRow
 			{
-				Id = Guid.NewGuid(),
 				ProfileId = profileId,
 				PerformedUtc = DateTime.UtcNow,
 				DistanceM = meters,
