@@ -27,7 +27,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton(supaSettings);
 		builder.Services.AddSingleton(_ =>
 		{
-			var options = new Supabase.SupabaseOptions { AutoRefreshToken = true, AutoConnectRealtime = false };
+			var options = new Supabase.SupabaseOptions
+			{
+				AutoRefreshToken = true,
+				AutoConnectRealtime = false,
+				SessionHandler = new AuthSessionStore()
+			};
 			return new SupabaseClient(supaSettings.Url, supaSettings.AnonKey, options);
 		});
 		builder.Services.AddSingleton<SupabaseAuthService>();

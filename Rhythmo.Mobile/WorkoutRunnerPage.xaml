@@ -15,8 +15,9 @@
                        LineBreakMode="TailTruncation" />
                 <ProgressBar x:Name="ExerciseProgressBar"
                              HeightRequest="6"
+                             Margin="0,2,0,14"
                              Progress="0" />
-                <Grid ColumnDefinitions="48,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="48,*" ColumnSpacing="12" Margin="0,0,0,8">
                     <Image x:Name="ExerciseArtImage"
                            Grid.Column="0"
                            HeightRequest="48"
@@ -49,7 +50,7 @@
             <ScrollView Grid.Row="1">
                 <VerticalStackLayout x:Name="ActiveExerciseRoot"
                                      Spacing="12"
-                                     Padding="0,4,0,12" />
+                                     Padding="0,8,0,12" />
             </ScrollView>
 
             <VerticalStackLayout Grid.Row="2"

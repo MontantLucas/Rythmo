@@ -45,6 +45,7 @@ public sealed class WeeklyChallengeService
 
 		var assignments = await repo.ListChallengeAssignmentsAsync(profileId, week.Year, week.Week, ct).ConfigureAwait(false);
 		var ctx = await Context(repo, profileId, ct).ConfigureAwait(false);
+		await StartFreshOffersAsync(repo, assignments, ctx, week.StartUtc(zone), ct).ConfigureAwait(false);
 		var awards = await repo.ListChallengeAwardsAsync(profileId, ct).ConfigureAwait(false);
 		var awardById = awards.ToDictionary(a => a.AssignmentId);
 		var names = (await repo.ListExercisesAsync(ct).ConfigureAwait(false)).ToDictionary(e => e.Id, e => e.NameFr);
@@ -109,6 +110,33 @@ public sealed class WeeklyChallengeService
 
 		var score = (await repo.ListChallengeAwardsAsync(profileId, ct).ConfigureAwait(false)).Sum(a => a.Points);
 		return new ChallengeBoard(score, cards);
+	}
+
+	private static async Task StartFreshOffersAsync(
+		IRhythmoRepository repo,
+		IReadOnlyList<WeeklyChallengeAssignmentRow> assignments,
+		ChallengeContext ctx,
+		DateTime weekStartUtc,
+		CancellationToken ct)
+	{
+		foreach (var assignment in assignments)
+		{
+			if (WeeklyChallengeCatalog.ParseStatus(assignment.Status) != ChallengeStatus.Offered)
+				continue;
+			if (!string.IsNullOrWhiteSpace(assignment.TargetJson) || assignment.StartedUtc is not null)
+				continue;
+			var family = WeeklyChallengeCatalog.FamilyOf(assignment.TemplateId);
+			var built = ChallengeTargets.TryBuild(
+				family, WeeklyChallengeCatalog.StrengthIndex(assignment.Slot), weekStartUtc, ctx);
+			if (built is null)
+				continue;
+			var targetJson = FrozenTargetJson.Write(built);
+			await repo.UpdateChallengeProgressAsync(assignment.Id, "active", targetJson, weekStartUtc, ct)
+				.ConfigureAwait(false);
+			assignment.Status = "active";
+			assignment.TargetJson = targetJson;
+			assignment.StartedUtc = weekStartUtc;
+		}
 	}
 
 	public async Task StartAsync(IRhythmoRepository repo, Guid profileId, Guid assignmentId, CancellationToken ct = default)
