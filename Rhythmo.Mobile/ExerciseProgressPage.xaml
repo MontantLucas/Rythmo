@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.ExerciseProgressPage"
+             Title="Progression"
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="20" RowDefinitions="Auto,*">
+        <Label x:Name="TitleLabel" FontFamily="OpenSansSemibold" FontSize="20" />
+        <GraphicsView x:Name="Chart" Grid.Row="1" HeightRequest="260" />
+    </Grid>
+</ContentPage>

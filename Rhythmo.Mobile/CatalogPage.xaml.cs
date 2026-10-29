@@ -34,6 +34,7 @@ public partial class CatalogPage : ContentPage
 		public bool HasUserRank { get; init; }
 		public string RankText { get; init; } = "";
 		public Color RankColor { get; init; } = RankPalette.Unevaluated;
+		public ImageSource Illustration { get; init; } = ExerciseIllustration.SourceFor(Guid.Empty);
 	}
 
 	private readonly List<CatalogRowVm> _view = [];
@@ -288,7 +289,8 @@ public partial class CatalogPage : ContentPage
 			SecondaryMuscles = secondary,
 			HasUserRank = hasRank,
 			RankText = hasRank ? RankLabels.Code(rank) : "",
-			RankColor = RankPalette.For(rank)
+			RankColor = RankPalette.For(rank),
+			Illustration = ExerciseIllustration.SourceFor(r.Id)
 		};
 	}
 

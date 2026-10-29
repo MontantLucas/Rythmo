@@ -100,24 +100,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		AddSheetSearchBar.TextChanged += OnAddSheetSearchChanged;
 	}
 
-	private async void OnAbandonSessionClicked(object? sender, EventArgs e)
-	{
-		var abandon = await DisplayAlertAsync(
-			"Annuler la séance ?",
-			"Tu quitteras sans enregistrer de résultat (pas d’historique ni de mise à jour des charges).",
-			"Oui, annuler",
-			"Non").ConfigureAwait(true);
-
-		if (!abandon)
-			return;
-
-		var activeProfileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		lock (_draftGate)
-			_draftStore.Clear(activeProfileId);
-
-		await UiShellNavigate.GoAsync("..").ConfigureAwait(false);
-	}
-
 	private sealed class ExerciseUi
 	{
 		public required Guid ExerciseId { get; init; }
@@ -262,7 +244,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			await MainThread.InvokeOnMainThreadAsync(() =>
 			{
 				AddExerciseBtn.IsVisible = _isAdHoc;
-				RemoveExerciseBtn.IsVisible = false;
+				Grid.SetColumnSpan(AddSetBtn, _isAdHoc ? 1 : 2);
 				SeedAddSheetCategoryPicker();
 
 				if (_isAdHoc)
@@ -345,6 +327,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		_currentExerciseIndex = index;
 
 		var blk = _blocks[index];
+		ExerciseArtImage.Source = ExerciseIllustration.SourceFor(blk.ExerciseId);
 		ExerciseTitleLabel.Text = blk.Title;
 		ExerciseCategoryLabel.Text = blk.Category.ToUpperInvariant();
 		if (blk.PrMaxKg > double.Epsilon)
@@ -364,7 +347,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		PrevExerciseBtn.IsEnabled = index > 0;
 		NextExerciseBtn.IsEnabled = index < _blocks.Count - 1;
 		AddSetBtn.IsEnabled = true;
-		RemoveExerciseBtn.IsVisible = _isAdHoc;
 
 		ActiveExerciseRoot.Children.Clear();
 		ActiveExerciseRoot.Children.Add(BuildSetsHeader());
@@ -375,6 +357,7 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 	private void ShowEmptyAdHocState()
 	{
 		ExerciseTitleLabel.Text = "Ajoute un exercice";
+		ExerciseArtImage.Source = ExerciseIllustration.SourceFor(Guid.Empty);
 		ExerciseCategoryLabel.Text = _isAdHoc ? "SÉANCE À LA VOLÉE" : "";
 		ExercisePrMaxLabel.IsVisible = false;
 		ExercisePrMaxLabel.Text = "";
@@ -383,7 +366,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		PrevExerciseBtn.IsEnabled = false;
 		NextExerciseBtn.IsEnabled = false;
 		AddSetBtn.IsEnabled = false;
-		RemoveExerciseBtn.IsVisible = false;
 
 		ActiveExerciseRoot.Children.Clear();
 		ActiveExerciseRoot.Children.Add(new Label
@@ -904,33 +886,6 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 		base.OnDisappearing();
 	}
 
-	private async void OnRemoveExerciseClicked(object? sender, EventArgs e)
-	{
-		if (!_isAdHoc || _blocks.Count == 0)
-			return;
-
-		var blk = _blocks[_currentExerciseIndex];
-		var confirm = await DisplayAlertAsync(
-			"Retirer cet exercice ?",
-			$"« {blk.Title} » sera enlevé de cette séance à la volée (pas encore enregistré).",
-			"Retirer",
-			"Annuler").ConfigureAwait(true);
-		if (!confirm)
-			return;
-
-		_blocks.RemoveAt(_currentExerciseIndex);
-		var profileId = ServiceHelper.Services.GetRequiredService<ActiveProfileStore>().Get();
-		if (_blocks.Count == 0)
-		{
-			ShowEmptyAdHocState();
-			PersistDraftNow(profileId);
-			return;
-		}
-
-		DisplayExercise(Math.Min(_currentExerciseIndex, _blocks.Count - 1));
-		PersistDraftNow(profileId);
-	}
-
 	private void OnAddExerciseClicked(object? sender, EventArgs e) => OpenAddExerciseSheet();
 
 	private void OnAddSheetBackdropTapped(object? sender, EventArgs e) =>
@@ -1087,13 +1042,22 @@ public partial class WorkoutRunnerPage : ContentPage, IQueryAttributable
 			{
 				ColumnDefinitions =
 				[
+					new ColumnDefinition(new GridLength(40)),
 					new ColumnDefinition(GridLength.Star),
 					new ColumnDefinition(GridLength.Auto)
 				],
 				ColumnSpacing = 12
 			};
-			row.Add(textCol, 0);
-			row.Add(addBtn, 1);
+			row.Add(new Image
+			{
+				Source = ExerciseIllustration.SourceFor(ex.Id),
+				WidthRequest = 40,
+				HeightRequest = 40,
+				Aspect = Aspect.AspectFit,
+				VerticalOptions = LayoutOptions.Center
+			}, 0);
+			row.Add(textCol, 1);
+			row.Add(addBtn, 2);
 
 			var wrap = new Border
 			{

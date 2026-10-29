@@ -70,7 +70,14 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnExerciseCardTapped" />
                         </Border.GestureRecognizers>
-                        <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="56,*" ColumnSpacing="12">
+                            <Image Grid.Column="0"
+                                   WidthRequest="56"
+                                   HeightRequest="56"
+                                   Aspect="AspectFit"
+                                   VerticalOptions="Start"
+                                   Source="{Binding Illustration}" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <Label FontFamily="OpenSansSemibold"
                                        FontSize="13"
@@ -191,6 +198,7 @@
                                         Clicked="OnStartFromExerciseClicked" />
                             </Grid>
                         </VerticalStackLayout>
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

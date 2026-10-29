@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Rhythmo.Mobile.MorePage"
-             Title="⋯"
+             Title="Compte"
              Shell.NavBarIsVisible="False">
     <VerticalStackLayout Padding="{OnIdiom Phone='20,28', Default='32,36'}"
                          Spacing="0"
@@ -48,10 +48,32 @@
                     <VerticalStackLayout Spacing="2">
                         <Label FontFamily="OpenSansSemibold"
                                FontSize="17"
-                               Text="Stats"
+                               Text="Statistiques"
                                TextColor="{StaticResource RhythmTextPrimary}" />
                         <Label Style="{StaticResource RhythmCaption}"
-                               Text="Historique, volume, progression" />
+                               Text="Période, muscles, historique" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="1"
+                           Text="›"
+                           FontSize="22"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource RhythmTextSecondary}" />
+                </Grid>
+                <BoxView HeightRequest="1"
+                         Color="#243040"
+                         Margin="18,0" />
+                <Grid Padding="18,16"
+                      ColumnDefinitions="*,Auto">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnFriendsTapped" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout Spacing="2">
+                        <Label FontFamily="OpenSansSemibold"
+                               FontSize="17"
+                               Text="Amis"
+                               TextColor="{StaticResource RhythmTextPrimary}" />
+                        <Label Style="{StaticResource RhythmCaption}"
+                               Text="Classement et activité" />
                     </VerticalStackLayout>
                     <Label Grid.Column="1"
                            Text="›"

@@ -24,7 +24,13 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(nameof(RankQuestsPage), typeof(RankQuestsPage));
 		Routing.RegisterRoute(nameof(RankQuestPage), typeof(RankQuestPage));
 		Routing.RegisterRoute(nameof(StatsPage), typeof(StatsPage));
+		Routing.RegisterRoute(nameof(HistoryPage), typeof(HistoryPage));
+		Routing.RegisterRoute(nameof(MuscleComparePage), typeof(MuscleComparePage));
+		Routing.RegisterRoute(nameof(ExerciseProgressPage), typeof(ExerciseProgressPage));
+		Routing.RegisterRoute(nameof(CardioLogPage), typeof(CardioLogPage));
+		Routing.RegisterRoute(nameof(WeeklyChallengesPage), typeof(WeeklyChallengesPage));
 		Routing.RegisterRoute(nameof(ProfilesPage), typeof(ProfilesPage));
+		Routing.RegisterRoute(nameof(FriendsPage), typeof(FriendsPage));
 
 		Loaded += (_, _) =>
 		{

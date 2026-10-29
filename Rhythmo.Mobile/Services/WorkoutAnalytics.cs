@@ -33,10 +33,7 @@ public static class WorkoutAnalytics
 	{
 		if (exercises is null)
 			return 0;
-		double v = 0;
-		foreach (var ex in exercises)
-		foreach (var s in ex.Sets)
-			v += s.Reps * s.WeightKg;
-		return v;
+		return Rhythmo.Shared.History.WorkoutVolume.Sum(
+			exercises.SelectMany(ex => ex.Sets.Select(s => (s.Reps, s.WeightKg))));
 	}
 }

@@ -77,6 +77,29 @@ public interface IRhythmoRepository
 	Task UpdateQuestAttemptAsync(RankQuestAttemptRow row, CancellationToken ct = default);
 	Task<bool> HasQuestAttemptOnLocalDateAsync(
 		Guid profileId, Guid exerciseId, DateOnly localDate, CancellationToken ct = default);
+
+	Task<IReadOnlyList<PrEventRow>> ListPrEventsForProfileAsync(Guid profileId, CancellationToken ct = default);
+	Task<IReadOnlyList<ExercisePersonalBestRow>> ListExercisePersonalBestsAsync(
+		Guid profileId, CancellationToken ct = default);
+
+	Task<IReadOnlyList<CardioActivityRow>> ListCardioActivitiesSinceAsync(
+		Guid profileId, DateTime sinceUtc, CancellationToken ct = default);
+	Task AddCardioActivityAsync(CardioActivityRow row, CancellationToken ct = default);
+	Task DeleteCardioActivityAsync(Guid id, Guid profileId, CancellationToken ct = default);
+
+	Task<IReadOnlyList<WeeklyChallengeAssignmentRow>> ListChallengeAssignmentsAsync(
+		Guid profileId, int isoYear, int isoWeek, CancellationToken ct = default);
+	Task InsertChallengeAssignmentAsync(WeeklyChallengeAssignmentRow row, CancellationToken ct = default);
+	Task UpdateChallengeProgressAsync(
+		Guid assignmentId,
+		string status,
+		string? targetJson,
+		DateTime? startedUtc,
+		CancellationToken ct = default);
+	Task<IReadOnlyList<ChallengePointAwardRow>> ListChallengeAwardsAsync(
+		Guid profileId, CancellationToken ct = default);
+	Task<bool> TryInsertChallengeAwardAsync(ChallengePointAwardRow row, CancellationToken ct = default);
+	Task UpdateChallengeAwardAsync(Guid assignmentId, int points, CancellationToken ct = default);
 }
 
 public sealed class ImportableUserRow

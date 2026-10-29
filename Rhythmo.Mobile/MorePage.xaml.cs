@@ -11,4 +11,7 @@ public partial class MorePage : ContentPage
 
 	private async void OnStatsTapped(object? sender, TappedEventArgs e) =>
 		await UiShellNavigate.GoAsync(nameof(StatsPage)).ConfigureAwait(false);
+
+	private async void OnFriendsTapped(object? sender, TappedEventArgs e) =>
+		await UiShellNavigate.GoAsync(nameof(FriendsPage)).ConfigureAwait(false);
 }

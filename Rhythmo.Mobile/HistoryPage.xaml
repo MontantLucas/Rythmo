@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Rhythmo.Mobile.HistoryPage"
+             Title="Historique"
+             Shell.NavBarIsVisible="True">
+    <Grid Padding="{OnIdiom Phone='20,12,20,16', Default='28,18'}">
+        <RefreshView x:Name="HistoryRefresh">
+            <ScrollView>
+                <VerticalStackLayout Spacing="14" Padding="0,0,0,28">
+                    <Grid x:Name="PeriodHost" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" />
+                    <Label x:Name="RangeLabel" Style="{StaticResource RhythmCaption}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button x:Name="ByExerciseBtn" Text="Par exercice" Clicked="OnByExerciseClicked" />
+                        <Button x:Name="BySessionBtn" Grid.Column="1" Text="Par séance" Clicked="OnBySessionClicked" />
+                    </Grid>
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                        <HorizontalStackLayout x:Name="FilterHost" Spacing="8" />
+                    </ScrollView>
+                    <Label x:Name="IndicatorLabel" Style="{StaticResource RhythmCaption}" />
+                    <VerticalStackLayout x:Name="ContentHost" Spacing="10" />
+                    <Button x:Name="CleanBtn"
+                            Style="{StaticResource RhythmBtnGhost}"
+                            Text="Nettoyer"
+                            Clicked="OnCleanClicked" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

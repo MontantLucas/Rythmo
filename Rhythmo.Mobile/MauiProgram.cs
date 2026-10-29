@@ -27,7 +27,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton(supaSettings);
 		builder.Services.AddSingleton(_ =>
 		{
-			var options = new Supabase.SupabaseOptions { AutoRefreshToken = true, AutoConnectRealtime = false };
+			var options = new Supabase.SupabaseOptions
+			{
+				AutoRefreshToken = true,
+				AutoConnectRealtime = false,
+				SessionHandler = new AuthSessionStore()
+			};
 			return new SupabaseClient(supaSettings.Url, supaSettings.AnonKey, options);
 		});
 		builder.Services.AddSingleton<SupabaseAuthService>();
@@ -41,6 +46,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<PersonalRecordService>();
 		builder.Services.AddSingleton<MuscleRankingService>();
 		builder.Services.AddSingleton<RankQuestService>();
+		builder.Services.AddSingleton<WeeklyChallengeService>();
+		builder.Services.AddSingleton<TrainingPeriodStore>();
 		builder.Services.AddSingleton<WorkoutDraftStore>();
 		builder.Services.AddSingleton<WorkoutFinalizeService>();
 		builder.Services.AddSingleton<SessionRecovery>();

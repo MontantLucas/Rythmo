@@ -47,8 +47,11 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 				return;
 			}
 
-			await client.Auth.RetrieveSessionAsync().ConfigureAwait(false);
-			BindProfile();
+			await RefreshIfNeededAsync().ConfigureAwait(false);
+			if (client.Auth.CurrentSession is null)
+				profiles.Clear();
+			else
+				BindProfile();
 		}
 		finally
 		{
@@ -368,8 +371,30 @@ public sealed class SupabaseAuthService(SupabaseClient client, ActiveProfileStor
 		if (_initialized)
 			return;
 
-		await client.InitializeAsync().ConfigureAwait(false);
+		// RetrieveSessionAsync détruit la session dès que le jeton d'accès est périmé,
+		// sans utiliser le refresh token. On recharge le fichier, puis on rafraîchit seulement si besoin.
+		client.Auth.LoadSession();
+		await RefreshIfNeededAsync().ConfigureAwait(false);
 		_initialized = true;
+	}
+
+	async Task RefreshIfNeededAsync()
+	{
+		var session = client.Auth.CurrentSession;
+		if (string.IsNullOrEmpty(session?.AccessToken) || string.IsNullOrEmpty(session.RefreshToken))
+			return;
+
+		if (!session.Expired() && session.ExpiresAt() > DateTime.UtcNow.AddMinutes(2))
+			return;
+
+		var access = session.AccessToken;
+		var refresh = session.RefreshToken;
+		// La surcharge à deux arguments n'est pas sur l'interface : elle rafraîchit même si le jeton d'accès est périmé.
+		if (client.Auth is not Supabase.Gotrue.Client auth)
+			return;
+		await auth.RefreshToken(access, refresh).ConfigureAwait(false);
+		// TokenRefreshed ne relance pas le minuteur. Recharger la session sauvegardée le fait.
+		client.Auth.LoadSession();
 	}
 
 	private void BindProfile()
